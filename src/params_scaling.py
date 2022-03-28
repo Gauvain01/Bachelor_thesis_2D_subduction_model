@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 import numpy as np
 import UWGeodynamics as geo
-from UWGeodynamics import UnitRegistry as u
+
+u = geo.u
 
 
 class NonDimensionalizer:
@@ -17,11 +18,23 @@ class NonDimensionalizer:
         KT = MainPhysicalParameters.potentialTemp - MainPhysicalParameters.surfaceTemp
         Kt = KL**2 / MainPhysicalParameters.refDiffusivity
         KM = MainPhysicalParameters.refViscosity * KL * Kt
+        Kvis = MainPhysicalParameters.refViscosity
+        Ksig = (
+            MainPhysicalParameters.refDiffusivity * MainPhysicalParameters.refViscosity
+        ) / KL**2
+        Kgrad = 1 / KL
+        Kvel = MainPhysicalParameters.refViscosity / KL
 
-        geo.scaling_coefficients["[length]"] = KL.to_base_units()
-        geo.scaling_coefficients["[temperature]"] = KT.to_base_units()
-        geo.scaling_coefficients["[mass]"] = KM.to_base_units()
-        geo.scaling_coefficients["[time]"] = Kt.to_base_units()
+        geo.scaling_coefficients["[length]"] = KL
+        geo.scaling_coefficients["[viscosity]"] = Kvis
+        geo.scaling_coefficients["[temperature]"] = KT
+
+        # geo.scaling_coefficients["[mass]"] = KM
+        geo.scaling_coefficients["[time]"] = Kt
+        geo.scaling_coefficients["[velocity]"] = Kvel
+
+        geo.scaling_coefficients["[stress]"] = Ksig
+        geo.scaling_coefficients["[gradient]"] = Kgrad
 
 
 @dataclass(frozen=True)
@@ -38,7 +51,7 @@ class MainPhysicalParameters:
     potentialTemp = 1673.0 * u.kelvin
     surfaceTemp = 273.0 * u.kelvin
 
-    def getNonDimensionalized() -> MainPhysicalParametersNonDimensionalized:
+    def getNonDimensionalized(self) -> MainPhysicalParametersNonDimensionalized:
         return MainPhysicalParametersNonDimensionalized()
 
 
@@ -118,7 +131,7 @@ class MainRheologyParameters:
         diffusionPreExpLM = self.diffusionPreExp * fac
         object.__setattr__(self, "diffusionPreExpLM", diffusionPreExpLM)
 
-    def getNonDimensionalized() -> MainPhysicalParametersNonDimensionalized:
+    def getNonDimensionalized(self) -> MainPhysicalParametersNonDimensionalized:
         return MainRheologyParametersNonDimensionalized()
 
 
@@ -136,3 +149,9 @@ class MainRheologyParametersNonDimensionalized(NonDimensionalizer):
             for a in inspect.getmembers(MainRheologyParameters())
             if not a[0].startswith("_")
         ]
+
+
+a = MainPhysicalParameters()
+a.getNonDimensionalized()
+for a in inspect.getmembers(a.getNonDimensionalized()):
+    print(a)
