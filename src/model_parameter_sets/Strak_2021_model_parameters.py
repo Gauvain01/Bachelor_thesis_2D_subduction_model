@@ -14,7 +14,7 @@ class Strak2021ScalingCoefficient(ScalingCoefficient):
 
     @property
     def lengthCoefficient(self):
-        return 2900e3 * u.meter
+        return 660e3 * u.meter
 
     @property
     def temperatureCoefficient(self):
@@ -50,7 +50,7 @@ class Strak2021ScalingCoefficient(ScalingCoefficient):
 
 
 strak2021ModelParameterList = [
-    ModelParameter("modelHeight", 2900e3 * u.meter, ScalingCoefficientTypeEnum.LENGTH),
+    ModelParameter("modelHeight", 660e3 * u.meter, ScalingCoefficientTypeEnum.LENGTH),
     ModelParameter("modelLength", 11600e3 * u.meter, ScalingCoefficientTypeEnum.LENGTH),
     ModelParameter(
         "referenceDensity",
