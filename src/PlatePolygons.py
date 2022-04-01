@@ -8,7 +8,7 @@ from UWGeodynamics import UnitRegistry
 from model_parameters.Model_parameter_set import ModelParameterSet
 
 
-class OceanicPLatePolygons:
+class SubductionZonePolygons:
     def __init__(
         self,
         parameterSet: ModelParameterSet,
@@ -272,19 +272,19 @@ class OceanicPLatePolygons:
         return x / self._magnitude
 
     def getCrustSlabShapeArray(self) -> List[Tuple]:
-        return self.crustSlabShape
+        return np.array(self.crustSlabShape)
 
     def getLithosphericMantleShapeForeArc(self) -> List[Tuple]:
-        return self.lithosSphericMantleShape
+        return np.array(self.lithosSphericMantleShape)
 
     def getLithosphericMantleShapeFarBackArc(self) -> List[Tuple]:
-        return self.lithoSphericMantleShapeFarBackarc
+        return np.array(self.lithoSphericMantleShapeFarBackarc)
 
     def getUpperSlabShapeArray(self) -> List[Tuple]:
-        return self.upperSlabPolygon
+        return np.array(self.upperSlabPolygon)
 
     def getMiddleSlabShapeArray(self) -> List[Tuple]:
-        return self.middleSlabPolygon
+        return np.array(self.middleSlabPolygon)
 
     def getLowerSlabShapeArray(self) -> List[Tuple]:
-        return self.lowerSlabPolygon
+        return np.array(self.lowerSlabPolygon)
