@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import os
 
-from model_parameters.Model_parameter_set import ModelParameterSet
-from model_parameter_sets.Strak_2021_model_parameters import strak2021ModelParameterSet
-from PlatePolygons import SubductionZonePolygons
-
-
-from underworld import mesh, swarm, mpi, visualisation
 from underworld import function as fn
+from underworld import mesh, mpi, swarm
 from underworld import underworld as uw
+from underworld import visualisation
+
+from model_parameter_sets.Strak_2021_model_parameters import strak2021ModelParameterSet
+from model_parameters.Model_parameter_set import ModelParameterSet
+from PlatePolygons import SubductionZonePolygons
 
 u = uw.scaling.units
 # model = geo.Model(
@@ -218,4 +219,11 @@ pp = SubductionZonePolygons(
 )
 model = SubductionModel("test", parameterSet, pp)
 
-model.getParticlePlot()
+if __name__ == "__main__":
+    outputPath = os.path.join(os.path.abspath("."), "output/")
+
+    if uw.mpi.rank == 0:
+        if not os.path.exists(outputPath):
+            os.makedirs(outputPath)
+    mpi.barrier()
+    model.getParticlePlot()
