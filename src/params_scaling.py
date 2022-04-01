@@ -149,9 +149,3 @@ class MainRheologyParametersNonDimensionalized(NonDimensionalizer):
             for a in inspect.getmembers(MainRheologyParameters())
             if not a[0].startswith("_")
         ]
-
-
-a = MainPhysicalParameters()
-a.getNonDimensionalized()
-for a in inspect.getmembers(a.getNonDimensionalized()):
-    print(a)

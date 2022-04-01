@@ -16,9 +16,7 @@ class ModelParameterSet:
         parameters1: List[ModelParameter] = [
             a for a in inspect.getmembers(self) if not callable(a[1])
         ]
-        print(parameters1)
         parameters = [a for a in parameters1 if not a[0].startswith("_")]
-        print(parameters)
         for parameter in parameters:
             self._scalingCoefficient.nonDimensionalizeModelParameter(parameter[1])
 
