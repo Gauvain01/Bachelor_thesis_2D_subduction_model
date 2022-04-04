@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import os
 
+from underworld import conditions
 from underworld import function as fn
 from underworld import mesh, mpi, swarm
 from underworld import underworld as uw
 from underworld import visualisation
+from underworld import systems
 
 from model_parameter_sets.Strak_2021_model_parameters import strak2021ModelParameterSet
 from model_parameters.Model_parameter_set import ModelParameterSet
@@ -97,6 +99,9 @@ class SubductionModel:
         name: str,
         modelParameterSet: ModelParameterSet,
         subductionZonePolygons: SubductionZonePolygons,
+        stepAmount,
+        stepTime,
+        plateVelocity,
     ) -> None:
         self.name = name
         self.subductionZonePolygons = subductionZonePolygons
@@ -113,8 +118,6 @@ class SubductionModel:
         )
         self.rank = mpi.rank
         self.outputPath = "./output"
-        self.velocityField = self.mesh.add_variable(nodeDofCount=2)
-        self.pressureField = self.mesh.subMesh.add_variable(nodeDofCount=1)
 
         self.swarm = swarm.Swarm(mesh=self.mesh)
         self.materialVariable = self.swarm.add_variable(dataType="int", count=1)
@@ -124,9 +127,60 @@ class SubductionModel:
         self.swarm.populate_using_layout(self.swarmLayout)
         self.figStore = visualisation.Store("output/subduction")
 
+        self.totalSteps = (stepAmount,)
+        self.stepTime = (
+            self.parameterSet._scalingCoefficient.nonDimensionalizeUnderworld(
+                stepTime.to_base_units()
+            ).magnitude
+        )
+        self.plateVelocity = (
+            self.parameterSet._scalingCoefficient.nonDimensionalizeUnderworld(
+                plateVelocity.to_base_units()
+            ).magnitude
+        )
+
+        self._initializeFields()
         self._initializeMaterialVariableData()
         self._initializePolygons()
         self._assignMaterialToParticles()
+        self._initializeFields()
+        self._setBoundaryConditions()
+
+    def _setBoundaryConditions(self):
+        self.verticalWalls = (
+            self.mesh.specialSets["Left_VertexSet"]
+            + self.mesh.specialSets["Right_VertexSet"]
+        )
+        self.horizontalWalls = (
+            self.mesh.specialSets["Top_VertexSet"]
+            + self.mesh.specialSets["Bottom_VertexSet"]
+        )
+        self.rightWall = self.mesh.specialSets["Right_VertexSet"]
+        self.leftWall = self.mesh.specialSets["Left_VertexSet"]
+        self.topWall = self.mesh.specialSets["Top_VertexSet"]
+        self.bottomWall = self.mesh.specialSets["Bottom_VertexSet"]
+
+        fixed = self.mesh.specialSets["Empty"]
+        fixNode = self.rightWall + self.bottomWall
+        fixed += fixNode
+
+        self.VelocityBoundaryCondition = conditions.DirichletCondition(
+            variable=self.velocityField,
+            indexSetsPerDof=(self.verticalWalls + self.horizontalWalls),
+        )
+        self.temperatureBoundaryCondition = conditions.DirichletCondition(
+            variable=self.temperatureField,
+            indexSetsPerDof=(self.topWall + self.verticalWalls),
+        )
+
+    def _initializeFields(self):
+        self.velocityField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=2)
+        self.pressureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.temperatureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.temperatureDotField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.pressureField.data[:] = 0.0
+        self.temperatureDotField.data[:] = 0.0
+        self.temperatureField.data[:] = 0
 
     def _initializeMaterialVariableData(self):
         self.upperMantleIndex = 0
@@ -195,6 +249,12 @@ class SubductionModel:
             )
         )
         fig.show()
+
+    def setUpRheologyFunction(self):
+        self.symStrainRate = fn.tensor.symmetric(self.velocityField.fn_gradient)
+        self.strainRateSecondInvariant = fn.tensor.second_invariant(
+            fn.tensor.symmetric(self.velocityField.fn_gradient)
+        )
 
 
 parameterSet = strak2021ModelParameterSet

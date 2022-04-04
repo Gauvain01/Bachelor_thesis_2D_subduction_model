@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import List
 
+from underworld import scaling
 from UWGeodynamics import UnitRegistry
 
 from model_parameters.Model_parameter import ModelParameter
@@ -11,6 +12,19 @@ class ScalingCoefficient(ABC):
     """
     base class for setting and using the Scaling Coefficient algorithm
     """
+
+    def __init__(self) -> None:
+        self._setUnderWorldScalingFactors()
+
+    def _setUnderWorldScalingFactors(self):
+        sco = scaling.get_coefficients()
+        sco["[length]"] = self.lengthCoefficient
+        sco["[temperature]"] = self.temperatureCoefficient
+        sco["[mass]"] = self.massCoefficient
+        sco["[time]"] = self.timeCoefficient
+
+    def nonDimensionalizeUnderworld(self, value):
+        return scaling.non_dimensionalise(value)
 
     @property
     def _functionToCoefficientEnumMapper(self) -> dict:

@@ -8,6 +8,9 @@ u = geo.UnitRegistry
 
 
 class Strak2021ScalingCoefficient(ScalingCoefficient):
+    def __init__(self) -> None:
+        super().__init__()
+
     @property
     def viscosityCoefficient(self):
         return 3.5e20 * u.pascal * u.second
