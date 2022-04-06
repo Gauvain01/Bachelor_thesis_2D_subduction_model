@@ -4,14 +4,14 @@ import os
 
 from underworld import conditions
 from underworld import function as fn
-from underworld import mesh, mpi, swarm
+from underworld import mesh, mpi, swarm, systems
 from underworld import underworld as uw
 from underworld import visualisation
-from underworld import systems
 
 from model_parameter_sets.Strak_2021_model_parameters import strak2021ModelParameterSet
 from model_parameters.Model_parameter_set import ModelParameterSet
 from PlatePolygons import SubductionZonePolygons
+from rheologyAlgorithms import RheologyCalculations
 
 u = uw.scaling.units
 # model = geo.Model(
@@ -140,11 +140,17 @@ class SubductionModel:
         )
 
         self._initializeFields()
+
+        self.rheologyCalculations = RheologyCalculations(
+            self.parameterSet, self.velocityField
+        )
+
         self._initializeMaterialVariableData()
         self._initializePolygons()
         self._assignMaterialToParticles()
         self._initializeFields()
         self._setBoundaryConditions()
+        self._initializeViscosityMapFn()
 
     def _setBoundaryConditions(self):
         self.verticalWalls = (
@@ -186,11 +192,10 @@ class SubductionModel:
         self.upperMantleIndex = 0
         self.upperSlabIndex = 1
         self.lowerSlabIndex = 2
-        self.coreSlabIndex = 3
         self.crustIndex = 4
         self.lithoSphericMantleForeArcIndex = 5
         self.lithoSphericMantleBackArcIndex = 6
-        self.middleSlabIndex = 7
+        self.middleSlabIndex = 3
 
     def _initializePolygons(self):
         upperSlabShape = self.subductionZonePolygons.getUpperSlabShapeArray()
@@ -250,10 +255,47 @@ class SubductionModel:
         )
         fig.show()
 
-    def setUpRheologyFunction(self):
-        self.symStrainRate = fn.tensor.symmetric(self.velocityField.fn_gradient)
-        self.strainRateSecondInvariant = fn.tensor.second_invariant(
-            fn.tensor.symmetric(self.velocityField.fn_gradient)
+    def _initializeViscosityMapFn(self):
+        def _safeViscosity(func, visMin, visMax):
+            return fn.misc.max(visMin, fn.misc.min(visMax, func))
+
+        upperMantleYieldVis = _safeViscosity(
+            self.rheologyCalculations.getEffectiveViscosityDiffusionCreep(),
+            self.parameterSet.lowerViscosityCutOff.nonDimensionalValue,
+            self.parameterSet.upperViscosityCutOff.nonDimensionalValue,
+        )
+        SPplateUpperYieldVis = fn.exception.SafeMaths(
+            fn.misc.min(
+                self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises(),
+                (self.parameterSet.referenceViscosity.nonDimensionalValue * 0.1),
+            )
+        )
+
+        SPplateCoreYieldVis = self.parameterSet.spCoreLayerViscosity.nonDimensionalValue
+        SPplateLowerYieldVis = (
+            self.parameterSet.spBottomLayerViscosity.nonDimensionalValue
+        )
+
+        OPcrustVis = self.parameterSet.opCrustLayerViscosity.nonDimensionalValue
+        OPLithoForeBackVis = (
+            self.parameterSet.opLithosphericMantleViscosityInForearcAndBackarc.nonDimensionalValue
+        )
+        OPlithoFarBackVis = (
+            self.parameterSet.opLithosphericMantleViscosityInFarBackarc.nonDimensionalValue
+        )
+
+        viscosityMap = {
+            self.upperMantleIndex: upperMantleYieldVis,
+            self.upperSlabIndex: SPplateUpperYieldVis,
+            self.middleSlabIndex: SPplateCoreYieldVis,
+            self.crustIndex: OPcrustVis,
+            self.lithoSphericMantleForeArcIndex: OPLithoForeBackVis,
+            self.lithoSphericMantleBackArcIndex: OPlithoFarBackVis,
+            self.lowerSlabIndex: SPplateLowerYieldVis,
+        }
+
+        self.viscosityMapFn = fn.branching.map(
+            fn_key=self.materialVariable, mapping=viscosityMap
         )
 
 
