@@ -8,8 +8,7 @@ from underworld import mesh, mpi, swarm, systems
 from underworld import underworld as uw
 from underworld import visualisation
 
-from model_parameter_sets.Strak_2021_model_parameters import \
-    strak2021ModelParameterSet
+from model_parameter_sets.Strak_2021_model_parameters import strak2021ModelParameterSet
 from model_parameters.Model_parameter_set import ModelParameterSet
 from PlatePolygons import SubductionZonePolygons
 from rheologyAlgorithms import RheologyCalculations
@@ -155,6 +154,7 @@ class SubductionModel:
         self._initializeFields()
         self._setBoundaryConditions()
         self._initializeViscosityMapFn()
+        self._initializeStressMapFn()
 
     def _setBoundaryConditions(self):
         self.verticalWalls = (
@@ -208,8 +208,6 @@ class SubductionModel:
         self.slabLowerPoly = fn.shape.Polygon(lowerSlabShape)
         self.slabMiddlePoly = fn.shape.Polygon(middleSlabShape)
 
-        
-
     def _assignMaterialToParticles(self):
         self.materialVariable.data[:] = self.upperMantleIndex
         for index in range(len(self.swarm.particleCoordinates.data)):
@@ -222,7 +220,6 @@ class SubductionModel:
                 self.materialVariable.data[index] = self.middleSlabIndex
             if self.slabLowerPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.lowerSlabIndex
-
 
     def getParticlePlot(self):
         fig = visualisation.Figure(
@@ -240,19 +237,58 @@ class SubductionModel:
         fig.show()
 
     def _initializeViscosityMapFn(self):
-        visTopLayer = self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises()
-        visCoreLayer = self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
+        visTopLayer = (
+            self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises()
+        )
+        visCoreLayer = (
+            self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
+        )
         visBottomLayer = self.parameterSet.spBottomLayerViscosity.nonDimensionalValue
-        
-        self.viscosityMap = {
-            self.upperMantleIndex:self.parameterSet.upperMantleViscosity.nonDimensionalValue,
-            self.lowerMantleIndex:self.parameterSet.lowerMantleViscosity.nonDimensionalValue,
-            self.lowerSlabIndex:visBottomLayer,
-            self.middleSlabIndex:visCoreLayer,
-            self.upperSlabIndex:fn.exception.SafeMaths(
-                fn.misc.min(visTopLayer, self.parameterSet.spTopLayerViscosity.nonDimensionalValue)
-            )
+
+        viscosityMap = {
+            self.upperMantleIndex: self.parameterSet.upperMantleViscosity.nonDimensionalValue,
+            self.lowerMantleIndex: self.parameterSet.lowerMantleViscosity.nonDimensionalValue,
+            self.lowerSlabIndex: visBottomLayer,
+            self.middleSlabIndex: visCoreLayer,
+            self.upperSlabIndex: fn.exception.SafeMaths(
+                fn.misc.min(
+                    visTopLayer,
+                    self.parameterSet.spTopLayerViscosity.nonDimensionalValue,
+                )
+            ),
         }
+        self.viscosityFn = fn.branching.map(
+            fn_key=self.materialVariable, mapping=viscosityMap
+        )
+
+    def _initializeStressMapFn(self):
+        viscousStressFn = (
+            2.0
+            * self.viscosityFn
+            * self.rheologyCalculations.getSymmetricStrainRateTensor()
+        )
+        elasticStressFn = (
+            self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
+            / (
+                self.parameterSet.coreShearModulus.nonDimensionalValue
+                * self.parameterSet.timeScaleStress
+            )
+            * self.previousStress
+        )
+        viscoElasticStressFn = viscousStressFn + elasticStressFn
+
+        stressMap = {
+            self.upperMantleIndex: viscousStressFn,
+            self.lowerMantleIndex: viscousStressFn,
+            self.lowerSlabIndex: viscousStressFn,
+            self.middleSlabIndex: viscoElasticStressFn,
+            self.upperSlabIndex: viscousStressFn,
+        }
+        self.stressFn = fn.branching.map(
+            fn_key=self.materialVariable, mapping=stressMap
+        )
+        self.stress2ndInvariant = fn.tensor.second_invariant(self.stressFn)
+
 
 parameterSet = strak2021ModelParameterSet
 # nonDimensionalizeParameters

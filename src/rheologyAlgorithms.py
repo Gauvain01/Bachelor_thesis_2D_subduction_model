@@ -1,10 +1,8 @@
-from distutils import core
 import math
-
+from distutils import core
 
 from underworld import function as fn
 from underworld import mesh, scaling
-
 
 from model_parameters.Model_parameter_set import ModelParameterSet
 
@@ -17,16 +15,24 @@ class RheologyCalculations:
     ) -> None:
         self.modelParameterSet = modelParameterSet
         self.velocityField = velocityField
+        self.symStrainRate = None
+        self.strainRateSecondInvariant = None
 
     def getSymmetricStrainRateTensor(self):
-        symStrainRate = fn.tensor.symmetric(self.velocityField.fn_gradient)
-        return symStrainRate
+        if self.symStrainRate is None:
+            self.symStrainRate = fn.tensor.symmetric(self.velocityField.fn_gradient)
+            return self.symStrainRate
+        else:
+            return self.symStrainRate
 
     def getStrainRateSecondInvariant(self):
-        strainRateSecondInvariant = fn.tensor.second_invariant(
-            fn.tensor.symmetric(self.velocityField.fn_gradient)
-        )
-        return strainRateSecondInvariant
+        if self.strainRateSecondInvariant is None:
+            self.strainRateSecondInvariant = fn.tensor.second_invariant(
+                fn.tensor.symmetric(self.velocityField.fn_gradient)
+            )
+            return self.strainRateSecondInvariant
+        else:
+            return self.strainRateSecondInvariant
 
     def getEffectiveViscosityDislocationCreep(self):
         # A * exp(E/nRT) * e_dot ^1-n/n
@@ -86,6 +92,6 @@ class RheologyCalculations:
         coreVis = self.modelParameterSet.spCoreLayerViscosity.nonDimensionalValue
 
         alpha = coreVis / coreShearModulus
-        dt_e = self.modelParameterSet._scalingCoefficient.scalingForTime(2e4 * u.years)
+        dt_e = self.modelParameterSet.timeScaleStress.nonDimensionalValue
         effVis = (coreVis * dt_e) / (alpha + dt_e)
         return effVis

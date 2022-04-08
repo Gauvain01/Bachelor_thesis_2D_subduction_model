@@ -29,6 +29,7 @@ class ModelParameterSet:
         self.gasConstant: ModelParameter
         self.lowerMantleHeigth: ModelParameter
         self.coreShearModulus: ModelParameter
+        self.timeScaleStress: ModelParameter
 
     def nonDimensionalizeParameters(self):
         parameters1: List[ModelParameter] = [
