@@ -8,7 +8,8 @@ from underworld import mesh, mpi, swarm, systems
 from underworld import underworld as uw
 from underworld import visualisation
 
-from model_parameter_sets.Strak_2021_model_parameters import strak2021ModelParameterSet
+from model_parameter_sets.Strak_2021_model_parameters import \
+    strak2021ModelParameterSet
 from model_parameters.Model_parameter_set import ModelParameterSet
 from PlatePolygons import SubductionZonePolygons
 from rheologyAlgorithms import RheologyCalculations
@@ -108,7 +109,7 @@ class SubductionModel:
         self.parameterSet = modelParameterSet
         self.mesh = mesh.FeMesh_Cartesian(
             elementType="Q1/dQ0",
-            elementRes=(1024, 512),
+            elementRes=(512, 206),
             minCoord=(0.0, 0.0),
             maxCoord=(
                 self.parameterSet.modelLength.nonDimensionalValue.magnitude,
@@ -121,6 +122,9 @@ class SubductionModel:
 
         self.swarm = swarm.Swarm(mesh=self.mesh)
         self.materialVariable = self.swarm.add_variable(dataType="int", count=1)
+        self.previousStress = self.swarm.add_variable(dataType="double", count=3)
+        self.dissipation = self.swarm.add_variable(dataType="double", count=1)
+        self.storedEnergyRate = self.swarm.add_variable(dataType="double", count=1)
         self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
             swarm=self.swarm, particlesPerCell=20
         )
@@ -192,9 +196,7 @@ class SubductionModel:
         self.upperMantleIndex = 0
         self.upperSlabIndex = 1
         self.lowerSlabIndex = 2
-        self.crustIndex = 4
-        self.lithoSphericMantleForeArcIndex = 5
-        self.lithoSphericMantleBackArcIndex = 6
+        self.lowerMantleIndex = 4
         self.middleSlabIndex = 3
 
     def _initializePolygons(self):
@@ -202,30 +204,18 @@ class SubductionModel:
         lowerSlabShape = self.subductionZonePolygons.getLowerSlabShapeArray()
         middleSlabShape = self.subductionZonePolygons.getMiddleSlabShapeArray()
 
-        crustShape = self.subductionZonePolygons.getCrustSlabShapeArray()
-        lithosphericMantleForeArcShape = (
-            self.subductionZonePolygons.getLithosphericMantleShapeForeArc()
-        )
-        lithosphericMantleBackArcShape = (
-            self.subductionZonePolygons.getLithosphericMantleShapeFarBackArc()
-        )
-
         self.slabUpperPoly = fn.shape.Polygon(upperSlabShape)
         self.slabLowerPoly = fn.shape.Polygon(lowerSlabShape)
         self.slabMiddlePoly = fn.shape.Polygon(middleSlabShape)
 
-        self.crustPoly = fn.shape.Polygon(crustShape)
-        self.lithosphericMantleForeArcPoly = fn.shape.Polygon(
-            lithosphericMantleForeArcShape
-        )
-        self.lithosphericMantleBackArcPoly = fn.shape.Polygon(
-            lithosphericMantleBackArcShape
-        )
+        
 
     def _assignMaterialToParticles(self):
         self.materialVariable.data[:] = self.upperMantleIndex
         for index in range(len(self.swarm.particleCoordinates.data)):
             coord = self.swarm.particleCoordinates.data[index][:]
+            if coord[1] < self.parameterSet.lowerMantleHeigth.nonDimensionalValue:
+                self.materialVariable.data[index] = self.lowerMantleIndex
             if self.slabUpperPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.upperSlabIndex
             if self.slabMiddlePoly.evaluate(tuple(coord)):
@@ -233,12 +223,6 @@ class SubductionModel:
             if self.slabLowerPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.lowerSlabIndex
 
-            if self.crustPoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.crustIndex
-            if self.lithosphericMantleForeArcPoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.lithoSphericMantleForeArcIndex
-            if self.lithosphericMantleBackArcPoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.lithoSphericMantleForeArcIndex
 
     def getParticlePlot(self):
         fig = visualisation.Figure(
@@ -256,48 +240,19 @@ class SubductionModel:
         fig.show()
 
     def _initializeViscosityMapFn(self):
-        def _safeViscosity(func, visMin, visMax):
-            return fn.misc.max(visMin, fn.misc.min(visMax, func))
-
-        upperMantleYieldVis = _safeViscosity(
-            self.rheologyCalculations.getEffectiveViscosityDiffusionCreep(),
-            self.parameterSet.lowerViscosityCutOff.nonDimensionalValue,
-            self.parameterSet.upperViscosityCutOff.nonDimensionalValue,
-        )
-        SPplateUpperYieldVis = fn.exception.SafeMaths(
-            fn.misc.min(
-                self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises(),
-                (self.parameterSet.referenceViscosity.nonDimensionalValue * 0.1),
+        visTopLayer = self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises()
+        visCoreLayer = self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
+        visBottomLayer = self.parameterSet.spBottomLayerViscosity.nonDimensionalValue
+        
+        self.viscosityMap = {
+            self.upperMantleIndex:self.parameterSet.upperMantleViscosity.nonDimensionalValue,
+            self.lowerMantleIndex:self.parameterSet.lowerMantleViscosity.nonDimensionalValue,
+            self.lowerSlabIndex:visBottomLayer,
+            self.middleSlabIndex:visCoreLayer,
+            self.upperSlabIndex:fn.exception.SafeMaths(
+                fn.misc.min(visTopLayer, self.parameterSet.spTopLayerViscosity.nonDimensionalValue)
             )
-        )
-
-        SPplateCoreYieldVis = self.parameterSet.spCoreLayerViscosity.nonDimensionalValue
-        SPplateLowerYieldVis = (
-            self.parameterSet.spBottomLayerViscosity.nonDimensionalValue
-        )
-
-        OPcrustVis = self.parameterSet.opCrustLayerViscosity.nonDimensionalValue
-        OPLithoForeBackVis = (
-            self.parameterSet.opLithosphericMantleViscosityInForearcAndBackarc.nonDimensionalValue
-        )
-        OPlithoFarBackVis = (
-            self.parameterSet.opLithosphericMantleViscosityInFarBackarc.nonDimensionalValue
-        )
-
-        viscosityMap = {
-            self.upperMantleIndex: upperMantleYieldVis,
-            self.upperSlabIndex: SPplateUpperYieldVis,
-            self.middleSlabIndex: SPplateCoreYieldVis,
-            self.crustIndex: OPcrustVis,
-            self.lithoSphericMantleForeArcIndex: OPLithoForeBackVis,
-            self.lithoSphericMantleBackArcIndex: OPlithoFarBackVis,
-            self.lowerSlabIndex: SPplateLowerYieldVis,
         }
-
-        self.viscosityMapFn = fn.branching.map(
-            fn_key=self.materialVariable, mapping=viscosityMap
-        )
-
 
 parameterSet = strak2021ModelParameterSet
 # nonDimensionalizeParameters

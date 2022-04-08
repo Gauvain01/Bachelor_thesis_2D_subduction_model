@@ -12,6 +12,24 @@ class ModelParameterSet:
         self._scalingCoefficient = scalingCoefficient
         self._modelParametersList = []
 
+        self.modelHeight: ModelParameter
+        self.modelLength: ModelParameter
+        self.referenceDensity: ModelParameter
+        self.gravitationalAcceleration: ModelParameter
+        self.referenceTemperature: ModelParameter
+        self.thermalExpansivity: ModelParameter
+        self.thermalDiffusivity: ModelParameter
+        self.referenceViscosity: ModelParameter
+        self.upperMantleViscosity: ModelParameter
+        self.lowerMantleViscosity: ModelParameter
+        self.spTopLayerViscosity: ModelParameter
+        self.spCoreLayerViscosity: ModelParameter
+        self.spBottomLayerViscosity: ModelParameter
+        self.yieldStressOfSpTopLayer: ModelParameter
+        self.gasConstant: ModelParameter
+        self.lowerMantleHeigth: ModelParameter
+        self.coreShearModulus: ModelParameter
+
     def nonDimensionalizeParameters(self):
         parameters1: List[ModelParameter] = [
             a for a in inspect.getmembers(self) if not callable(a[1])

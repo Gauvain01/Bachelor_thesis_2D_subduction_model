@@ -1,9 +1,14 @@
+from distutils import core
 import math
 
+
 from underworld import function as fn
-from underworld import mesh
+from underworld import mesh, scaling
+
 
 from model_parameters.Model_parameter_set import ModelParameterSet
+
+u = scaling.units
 
 
 class RheologyCalculations:
@@ -68,14 +73,19 @@ class RheologyCalculations:
 
     def getEffectiveViscosityOfUpperLayerVonMises(self):
         sigmaY = (
-            self.modelParameterSet.yieldStressOfSpTopLayer.dimensionalValue.magnitude
+            self.modelParameterSet.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         )
         strainRateSecondInvariant = self.getStrainRateSecondInvariant()
 
         effectiveViscosity = (sigmaY) / (2 * strainRateSecondInvariant)
-        scaledEffectiveViscosity = (
-            self.modelParameterSet._scalingCoefficient.scalingForViscosity(
-                effectiveViscosity
-            )
-        )
-        return scaledEffectiveViscosity
+
+        return effectiveViscosity
+
+    def getEffectiveViscosityOfViscoElasticCore(self):
+        coreShearModulus = self.modelParameterSet.coreShearModulus.nonDimensionalValue
+        coreVis = self.modelParameterSet.spCoreLayerViscosity.nonDimensionalValue
+
+        alpha = coreVis / coreShearModulus
+        dt_e = self.modelParameterSet._scalingCoefficient.scalingForTime(2e4 * u.years)
+        effVis = (coreVis * dt_e) / (alpha + dt_e)
+        return effVis
