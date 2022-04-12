@@ -9,7 +9,7 @@ from model_parameters.Model_parameter_set import ModelParameterSet
 u = scaling.units
 
 
-class RheologyCalculations:
+class RheologyFunctions:
     def __init__(
         self, modelParameterSet: ModelParameterSet, velocityField: mesh.MeshVariable
     ) -> None:
