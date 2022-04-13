@@ -5,3 +5,5 @@
 /.png
 /.pyc
 /.gldb
+src/.pyc
+src/.cpython

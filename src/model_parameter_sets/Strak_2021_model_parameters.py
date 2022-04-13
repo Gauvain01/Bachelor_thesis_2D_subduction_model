@@ -17,7 +17,7 @@ class Strak2021ScalingCoefficient(ScalingCoefficient):
 
     @property
     def lengthCoefficient(self):
-        return 660e3 * u.meter
+        return 2900e3 * u.meter
 
     @property
     def temperatureCoefficient(self):
@@ -53,7 +53,7 @@ class Strak2021ScalingCoefficient(ScalingCoefficient):
 
 
 strak2021ModelParameterList = [
-    ModelParameter("modelHeight", 660e3 * u.meter, ScalingCoefficientTypeEnum.LENGTH),
+    ModelParameter("modelHeight", 2900e3 * u.meter, ScalingCoefficientTypeEnum.LENGTH),
     ModelParameter("modelLength", 11600e3 * u.meter, ScalingCoefficientTypeEnum.LENGTH),
     ModelParameter(
         "referenceDensity",
@@ -66,7 +66,7 @@ strak2021ModelParameterList = [
         ScalingCoefficientTypeEnum.MANUAL,
     ).setNondimensionalValue(u.Quantity(1.0)),
     ModelParameter(
-        "gravitanionalAcceleration",
+        "gravitationalAcceleration",
         9.81 * u.meter / u.second,
         ScalingCoefficientTypeEnum.NONE,
     ),
@@ -76,7 +76,7 @@ strak2021ModelParameterList = [
         ScalingCoefficientTypeEnum.TEMPERATURE,
     ),
     ModelParameter(
-        "spWmTemperatureContrast",
+        "temperatureContrast",
         1573.15 * u.kelvin,
         ScalingCoefficientTypeEnum.TEMPERATURE,
     ),

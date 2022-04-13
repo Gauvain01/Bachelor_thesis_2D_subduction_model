@@ -17,6 +17,7 @@ class RheologyFunctions:
         self.velocityField = velocityField
         self.symStrainRate = None
         self.strainRateSecondInvariant = None
+        self.rayLeighNumber = None
 
     def getSymmetricStrainRateTensor(self):
         if self.symStrainRate is None:
@@ -95,3 +96,29 @@ class RheologyFunctions:
         dt_e = self.modelParameterSet.timeScaleStress.nonDimensionalValue
         effVis = (coreVis * dt_e) / (alpha + dt_e)
         return effVis
+
+    def getRayleighNumber(self):
+        if self.rayLeighNumber is None:
+            ls = self.modelParameterSet.modelHeight.dimensionalValue.magnitude
+            print(ls)
+            rhoRef = self.modelParameterSet.referenceDensity.dimensionalValue.magnitude
+            print(rhoRef)
+            g = (
+                self.modelParameterSet.gravitationalAcceleration.dimensionalValue.magnitude
+            )
+            print(g)
+            alpha = self.modelParameterSet.thermalExpansivity.dimensionalValue.magnitude
+            print(alpha)
+            deltaT = (
+                self.modelParameterSet.temperatureContrast.dimensionalValue.magnitude
+            )
+            print(deltaT)
+            k = self.modelParameterSet.thermalDiffusivity.dimensionalValue.magnitude
+            print(k)
+            eta = self.modelParameterSet.referenceViscosity.dimensionalValue.magnitude
+            print(eta)
+
+            self.rayLeighNumber = ((ls**3) * rhoRef * g * alpha * deltaT) / (k * eta)
+            return self.rayLeighNumber
+        else:
+            return self.rayLeighNumber

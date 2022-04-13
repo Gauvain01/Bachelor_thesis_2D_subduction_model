@@ -30,8 +30,23 @@ class ModelParameterSet:
         self.lowerMantleHeigth: ModelParameter
         self.coreShearModulus: ModelParameter
         self.timeScaleStress: ModelParameter
+        self._checked = False
+
+    def _check(self):
+        if not self._checked:
+            parameters1: List[ModelParameter] = [
+                a for a in inspect.getmembers(self) if not callable(a[1])
+            ]
+            parameters = [a for a in parameters1 if not a[0].startswith("_")]
+            for parameter in parameters:
+                if parameter is None:
+                    raise ValueError(
+                        f"{parameter} is None, add modelParameter with the correct name"
+                    )
+            self._checked = True
 
     def nonDimensionalizeParameters(self):
+        self._check()
         parameters1: List[ModelParameter] = [
             a for a in inspect.getmembers(self) if not callable(a[1])
         ]
@@ -41,8 +56,11 @@ class ModelParameterSet:
 
     def addModelParameter(self, modelParameter: ModelParameter) -> None:
         try:
-            getattr(self, modelParameter.name)
-            raise ValueError
+            item = getattr(self, modelParameter.name)
+            if item is not None:
+                raise ValueError
+            else:
+                setattr(self, modelParameter.name, modelParameter)
         except AttributeError:
             setattr(self, modelParameter.name, modelParameter)
             self._modelParametersList.append(modelParameter)
@@ -52,6 +70,7 @@ class ModelParameterSet:
     ) -> None:
         for param in ModelParameterlist:
             self.addModelParameter(param)
+        self._check()
 
     def _printModelParametersNonDimensionalValues(self):
         for param in self._modelParametersList:
