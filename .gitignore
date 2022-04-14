@@ -1,6 +1,7 @@
 *.pyc
 *.png
 *.blgd
+*.egg-info
 *.__pycache__
 test/*.pyc
 /.pytest_cache
@@ -13,9 +14,4 @@ test/*.pyc
 /.pyc
 /.cpython
 /.cpython
-src/__pycache__
-src/model_parameter_sets/__pycache__/Strak_2021_modelParameters.cpython-39.pyc
-src/model_parameter_sets/__pycache__/Strak_2021_modelParameters.cpython-39.pyc
-src/modelParameters/__pycache__/Model_parameter_set.cpython-39.pyc
-test/__pycache__/test_strak_2021_model_params.cpython-39-pytest-7.0.1.pyc
-src/model_parameter_sets/__pycache__/Strak_2021_model_parameters.cpython-39.pyc
+
