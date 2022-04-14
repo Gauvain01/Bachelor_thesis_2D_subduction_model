@@ -1,6 +1,6 @@
 import UWGeodynamics as geo
 from model_parameters.Model_parameter import ModelParameter
-from model_parameters.Model_parameter_set import ModelParameterSet
+from model_parameters.Model_parameter_set import ModelParameterDao
 from model_parameters.Scaling_coefficient import ScalingCoefficient
 from model_parameters.scaling_coefficient_type_enum import ScalingCoefficientTypeEnum
 
@@ -162,6 +162,6 @@ strak2021ModelParameterList = [
     ).setNondimensionalValue(u.Quantity(0.0)),
 ]
 
-strak2021ModelParameterSet = ModelParameterSet(Strak2021ScalingCoefficient())
+strak2021ModelParameterSet = ModelParameterDao(Strak2021ScalingCoefficient())
 strak2021ModelParameterSet.addModelParameterFromList(strak2021ModelParameterList)
 strak2021ModelParameterSet.nonDimensionalizeParameters()

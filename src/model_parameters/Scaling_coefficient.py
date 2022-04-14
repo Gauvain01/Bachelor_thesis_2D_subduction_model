@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import List
 
+from pint.unit import _Unit
 from underworld import scaling
 from UWGeodynamics import UnitRegistry
 
@@ -40,25 +41,11 @@ class ScalingCoefficient(ABC):
         }
         return mapperDict
 
-    def nonDimensionalizeModelParameter(self, modelParameter: ModelParameter) -> None:
-
-        if (
-            modelParameter.scalingCoefficientTypeEnum
-            == ScalingCoefficientTypeEnum.MANUAL
-        ):
-            if modelParameter.nonDimensionalValue == None:
-                raise ValueError
-        elif (
-            modelParameter.scalingCoefficientTypeEnum == ScalingCoefficientTypeEnum.NONE
-        ):
-            if modelParameter.nonDimensionalValue != None:
-                raise ValueError
-        else:
-            func = self._functionToCoefficientEnumMapper[
-                modelParameter.scalingCoefficientTypeEnum
-            ]
-            nonDimVal = func(modelParameter.dimensionalValue)
-            modelParameter.setNondimensionalValue(nonDimVal)
+    def nonDimensionalizeUnit(
+        self, value: _Unit, scalingTypeEnum: ScalingCoefficientTypeEnum
+    ):
+        func = self._functionToCoefficientEnumMapper[scalingTypeEnum]
+        return func(value)
 
     @property
     def viscosityCoefficient(self):

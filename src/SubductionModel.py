@@ -1,5 +1,5 @@
 from PlatePolygons import SubductionZonePolygons
-from model_parameters.Model_parameter_set import ModelParameterSet
+from model_parameters.Model_parameter_set import ModelParameterDao
 from underworld import mesh, visualisation, swarm, mpi, conditions
 from underworld import function as fn
 from RheologyFunctions import RheologyFunctions
@@ -9,7 +9,7 @@ class SubductionModel:
     def __init__(
         self,
         name: str,
-        modelParameterSet: ModelParameterSet,
+        modelParameterSet: ModelParameterDao,
         subductionZonePolygons: SubductionZonePolygons,
         stepAmount,
         stepTime,

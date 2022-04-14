@@ -4,14 +4,14 @@ from distutils import core
 from underworld import function as fn
 from underworld import mesh, scaling
 
-from model_parameters.Model_parameter_set import ModelParameterSet
+from model_parameters.Model_parameter_set import ModelParameterDao
 
 u = scaling.units
 
 
 class RheologyFunctions:
     def __init__(
-        self, modelParameterSet: ModelParameterSet, velocityField: mesh.MeshVariable
+        self, modelParameterSet: ModelParameterDao, velocityField: mesh.MeshVariable
     ) -> None:
         self.modelParameterSet = modelParameterSet
         self.velocityField = velocityField

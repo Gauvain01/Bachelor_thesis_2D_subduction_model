@@ -5,13 +5,13 @@ import numpy as np
 import UWGeodynamics as geo
 from UWGeodynamics import UnitRegistry
 
-from model_parameters.Model_parameter_set import ModelParameterSet
+from model_parameters.Model_parameter_set import ModelParameterDao
 
 
 class SubductionZonePolygons:
     def __init__(
         self,
-        parameterSet: ModelParameterSet,
+        parameterSet: ModelParameterDao,
         dip: float,
         dipLength: UnitRegistry,
         plateLength: UnitRegistry,
