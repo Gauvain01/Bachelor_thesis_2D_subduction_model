@@ -1,4 +1,6 @@
 *.pyc
+*.png
+*.blgd
 *.__pycache__
 test/*.pyc
 /.pytest_cache
