@@ -1,7 +1,10 @@
 import numpy as np
-from RheologyFunctions import RheologyFunctions
 
-from resources.Strak_2021_model_params_resources import getNonDimensionals
+from test_resources import Strak_2021_model_params_resources
+
+# from RheologyFunctions import RheologyFunctions
+
+# from resources.Strak_2021_model_params_resources import getNonDimensionals
 
 # def test_strak_2021_model_params_scaling():
 #     dimensionals = getNonDimensionals()
