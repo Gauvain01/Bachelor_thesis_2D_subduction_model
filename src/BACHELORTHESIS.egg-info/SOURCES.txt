@@ -1,7 +1,0 @@
-README.md
-setup.py
-src/BACHELORTHESIS.egg-info/PKG-INFO
-src/BACHELORTHESIS.egg-info/SOURCES.txt
-src/BACHELORTHESIS.egg-info/dependency_links.txt
-src/BACHELORTHESIS.egg-info/top_level.txt
-test/test_main.py
