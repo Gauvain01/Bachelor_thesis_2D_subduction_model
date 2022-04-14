@@ -6,14 +6,11 @@ from underworld import function as fn
 from underworld import mpi
 from underworld import underworld as uw
 
-from model_parameter_sets.Strak_2021_model_parameters import \
-    strak2021ModelParameterSet
+from model_parameter_sets.Strak_2021_modelParameters import strak2021ModelParameterSet
 from PlatePolygons import SubductionZonePolygons
 from SubductionModel import SubductionModel
 
 u = uw.scaling.units
-
-
 
 
 parameterSet = strak2021ModelParameterSet

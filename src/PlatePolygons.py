@@ -5,7 +5,7 @@ import numpy as np
 import UWGeodynamics as geo
 from UWGeodynamics import UnitRegistry
 
-from model_parameters.Model_parameter_set import ModelParameterDao
+from modelParameters.Model_parameter_set import ModelParameterDao
 
 
 class SubductionZonePolygons:

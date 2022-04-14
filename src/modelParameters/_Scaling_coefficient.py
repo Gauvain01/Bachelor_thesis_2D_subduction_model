@@ -5,8 +5,8 @@ from pint.unit import _Unit
 from underworld import scaling
 from UWGeodynamics import UnitRegistry
 
-from model_parameters.Model_parameter import ModelParameter
-from model_parameters.scaling_coefficient_type_enum import ScalingCoefficientTypeEnum
+from modelParameters._Model_parameter import ModelParameter
+from modelParameters._scaling_coefficient_type import ScalingCoefficientType
 
 
 class ScalingCoefficient(ABC):
@@ -30,19 +30,19 @@ class ScalingCoefficient(ABC):
     @property
     def _functionToCoefficientEnumMapper(self) -> dict:
         mapperDict = {
-            ScalingCoefficientTypeEnum.VELOCITYVECTOR: self.scalingForVelocityVector,
-            ScalingCoefficientTypeEnum.VISCOSITY: self.scalingForViscosity,
-            ScalingCoefficientTypeEnum.STRESS: self.scalingForStress,
-            ScalingCoefficientTypeEnum.TEMPERATURE: self.scalingForTemperature,
-            ScalingCoefficientTypeEnum.LENGTH: self.scalingForLength,
-            ScalingCoefficientTypeEnum.GRADIENT: self.scalingForGradient,
-            ScalingCoefficientTypeEnum.MASS: self.scalingForMass,
-            ScalingCoefficientTypeEnum.TIME: self.scalingForTime,
+            ScalingCoefficientType.VELOCITYVECTOR: self.scalingForVelocityVector,
+            ScalingCoefficientType.VISCOSITY: self.scalingForViscosity,
+            ScalingCoefficientType.STRESS: self.scalingForStress,
+            ScalingCoefficientType.TEMPERATURE: self.scalingForTemperature,
+            ScalingCoefficientType.LENGTH: self.scalingForLength,
+            ScalingCoefficientType.GRADIENT: self.scalingForGradient,
+            ScalingCoefficientType.MASS: self.scalingForMass,
+            ScalingCoefficientType.TIME: self.scalingForTime,
         }
         return mapperDict
 
     def nonDimensionalizeUnit(
-        self, value: _Unit, scalingTypeEnum: ScalingCoefficientTypeEnum
+        self, value: _Unit, scalingTypeEnum: ScalingCoefficientType
     ):
         func = self._functionToCoefficientEnumMapper[scalingTypeEnum]
         return func(value)

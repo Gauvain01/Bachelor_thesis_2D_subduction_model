@@ -4,7 +4,7 @@ from distutils import core
 from underworld import function as fn
 from underworld import mesh, scaling
 
-from model_parameters.Model_parameter_set import ModelParameterDao
+from modelParameters.Model_parameter_set import ModelParameterDao
 
 u = scaling.units
 

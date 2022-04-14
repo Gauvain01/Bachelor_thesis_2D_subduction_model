@@ -1,7 +1,7 @@
 from enum import IntEnum
 
 
-class ScalingCoefficientTypeEnum(IntEnum):
+class ScalingCoefficientType(IntEnum):
     VISCOSITY = 1
     STRESS = 2
     LENGTH = 3

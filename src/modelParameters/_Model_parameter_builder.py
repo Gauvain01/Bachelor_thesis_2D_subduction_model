@@ -3,11 +3,9 @@ from typing import Union
 from pint.quantity import _Quantity
 from pint.unit import _Unit
 
-from model_parameters.Model_parameter import ModelParameter
-from model_parameters.Scaling_coefficient import (
-    ScalingCoefficient,
-    ScalingCoefficientTypeEnum,
-)
+from modelParameters._Model_parameter import ModelParameter
+from modelParameters._Scaling_coefficient import ScalingCoefficient
+from modelParameters._scaling_coefficient_type import ScalingCoefficientType
 
 
 class ModelParameterBuilder:
@@ -17,14 +15,14 @@ class ModelParameterBuilder:
     def buildModelParameter(
         self,
         value: Union[_Unit, _Quantity],
-        scalingCoefficientEnum: Union[None, ScalingCoefficientTypeEnum] = None,
+        scalingCoefficientEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameter:
         if isinstance(value, _Unit):
             if scalingCoefficientEnum is None:
                 raise ValueError(
                     "value type is pint.unit._Unit but no scalingCoefficientType Was Given"
                 )
-            elif scalingCoefficientEnum == ScalingCoefficientTypeEnum.NONE:
+            elif scalingCoefficientEnum == ScalingCoefficientType.NONE:
                 nonDimensionalValue = value.magnitude
             else:
                 nonDimensionalValue = self.scalingCoefficient.nonDimensionalizeUnit(
