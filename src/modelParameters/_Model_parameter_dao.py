@@ -3,7 +3,7 @@ import attr
 from modelParameters._Model_parameter import ModelParameter
 
 
-@attr.s(frozen=True, repr=True)
+@attr.s(frozen=True, repr=True, slots=True)
 class ModelParameterDao:
     modelHeight: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
@@ -59,3 +59,6 @@ class ModelParameterDao:
     timeScaleStress: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
     )
+
+    def __dict__(self):
+        return {key: item.__dict__() for key, item in super().__dict__()}

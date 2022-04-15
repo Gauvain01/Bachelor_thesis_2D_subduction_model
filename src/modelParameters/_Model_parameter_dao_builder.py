@@ -53,11 +53,16 @@ class ModelParameterDaoBuilder:
         self._coreShearModulus: ModelParameter = None
         self._timeScaleStress: ModelParameter = None
 
+    def checkAttribute(self, attribute):
+        if attribute is not None:
+            raise AttributeError(f"{attribute = } already assigned")
+
     def setModelHeight(
         self,
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._modelHeight)
         self._modelHeight = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -68,6 +73,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._modelLength)
         self._modelLength = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -78,6 +84,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._referenceDensity)
         self._referenceDensity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -88,6 +95,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._gravitationalAcceleration)
         self._gravitationalAcceleration = (
             self._modelParameterbuilder.buildModelParameter(
                 value, scalingCoefficientTypeEnum
@@ -100,6 +108,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._referenceTemperature)
         self._referenceTemperature = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -110,6 +119,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._thermalExpansivity)
         self._thermalExpansivity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -120,6 +130,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._thermalDiffusivity)
         self._thermalDiffusivity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -130,6 +141,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._referenceViscosity)
         self._referenceViscosity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -140,6 +152,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._upperMantleViscosity)
         self._upperMantleViscosity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -150,6 +163,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._lowerMantleViscosity)
         self._lowerMantleViscosity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -160,6 +174,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._spTopLayerViscosity)
         self._spTopLayerViscosity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -170,6 +185,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._spCoreLayerViscosity)
         self._spCoreLayerViscosity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -180,6 +196,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._spBottomLayerViscosity)
         self._spBottomLayerViscosity = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -190,6 +207,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._yieldStressOfSpTopLayer)
         self._yieldStressOfSpTopLayer = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -200,6 +218,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._gasConstant)
         self._gasConstant = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -210,6 +229,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._lowerMantleHeigth)
         self._lowerMantleHeigth = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -220,6 +240,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._coreShearModulus)
         self._coreShearModulus = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
@@ -230,6 +251,7 @@ class ModelParameterDaoBuilder:
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
     ) -> ModelParameterDaoBuilder:
+        self._checkAttribute(self._timeScaleStress)
         self._timeScaleStress = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum
         )
