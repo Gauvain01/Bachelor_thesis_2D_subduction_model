@@ -5,6 +5,7 @@ from test.test_resources.Strak_2021_model_params_resources import (
 import numpy as np
 from modelParameters import ModelParameterMapBuilder
 from RheologyFunctions import RheologyFunctions
+from underworld.scaling import units as u
 
 
 def test_model_parameter_map():
@@ -39,6 +40,16 @@ def test_blueprint_map():
     builder = ModelParameterMapBuilder.fromBluePrint(bluePrint)
     paramMap = builder.build()
     assert repr(paramMap) == repr(get_Strak_2021_model_parameter_map())
+
+
+def test_blueprint_map_with_change():
+    bluePrint = get_Strak_2021_model_parameter_map(True)
+
+    builder = ModelParameterMapBuilder.fromBluePrint(bluePrint)
+    builder.setGasConstant(u.Quantity(100.0))
+    paramMap = builder.build()
+    assert repr(paramMap) != repr(get_Strak_2021_model_parameter_map())
+    assert paramMap.gasConstant.nonDimensionalValue.magnitude == 100.0
 
 
 def test_rayleigh_number():
