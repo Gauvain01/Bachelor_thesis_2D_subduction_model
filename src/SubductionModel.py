@@ -1,6 +1,7 @@
+from os import system
 from underworld import conditions
 from underworld import function as fn
-from underworld import mesh, mpi, swarm, visualisation
+from underworld import mesh, mpi, swarm, visualisation, systems
 
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
@@ -67,6 +68,10 @@ class SubductionModel:
         self._setBoundaryConditions()
         self._initializeViscosityMapFn()
         self._initializeStressMapFn()
+        self._setBuoyancy()
+        self._initializeStokes()
+        self._initializeAdvectionDiffusion()
+        self._initializeSwarmAdvector()
 
     def _setBoundaryConditions(self):
         self.verticalWalls = (
@@ -183,9 +188,9 @@ class SubductionModel:
         shearMod = self.parameters.coreShearModulus.nonDimensionalValue
         dt = self.parameters.timeScaleStress.nonDimensionalValue
 
-        elasticStressFn = visEff / (shearMod * dt) * self.previousStress
+        self.elasticStressFn = visEff / (shearMod * dt) * self.previousStress
 
-        viscoElasticStressFn = viscousStressFn + elasticStressFn
+        viscoElasticStressFn = viscousStressFn + self.elasticStressFn
 
         stressMap = {
             self.upperMantleIndex: viscousStressFn,
@@ -198,3 +203,42 @@ class SubductionModel:
             fn_key=self.materialVariable, mapping=stressMap
         )
         self.stress2ndInvariant = fn.tensor.second_invariant(self.stressFn)
+
+    def _setBuoyancy(self):
+        ez = (0.0, -1.0)
+        Ra = self.rheologyCalculations.getRayleighNumber()
+        thermalDensityFn = Ra * (1.0 - self.temperatureField)
+        self.buoyancyMapFn = thermalDensityFn * ez
+
+    def _initializeStokes(self):
+        self.stokes = systems.Stokes(
+            velocityField=self.velocityField,
+            pressureField=self.pressureField,
+            fn_bodyforce=self.buoyancyMapFn,
+            fn_viscosity=self.viscosityFn,
+            fn_stresshistory=self.elasticStressFn,
+            conditions=[
+                self.VelocityBoundaryCondition,
+            ],
+        )
+
+    def _initializeAdvectionDiffusion(self):
+        self.advectionDiffusion = systems.AdvectionDiffusion(
+            phiField=self.temperatureField,
+            phiDotField=self.temperatureDotField,
+            velocityField=self.velocityField,
+            fn_sourceTerm=0.0,
+            fn_diffusivity=1.0,
+            conditions=[
+                self.temperatureBoundaryCondition,
+            ],
+            allow_non_q1=True,
+        )
+
+    def _initializeSwarmAdvector(self):
+        self.swarmAdvector = systems.SwarmAdvector(
+            self.velocityField, self.swarm, order=2
+        )
+
+    def advectUpdate(self, dt):
+        self.swarmAdvector.integrate(dt)

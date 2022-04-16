@@ -55,5 +55,4 @@ def test_blueprint_map_with_change():
 def test_rayleigh_number():
     rheologyFn = RheologyFunctions(get_Strak_2021_model_parameter_map(), None)
     rayleighNumber = rheologyFn.getRayleighNumber()
-    print(rayleighNumber)
     assert format(rayleighNumber, ".1E") == format(3.5e7, ".1E")
