@@ -8,33 +8,37 @@ from RheologyFunctions import RheologyFunctions
 
 
 def test_model_parameter_map():
-    strakDao = get_Strak_2021_model_parameter_map()
-    assert strakDao.gasConstant.nonDimensionalValue == 8.3145
-    assert strakDao.modelHeight.nonDimensionalValue == 1
-    assert strakDao.referenceDensity.nonDimensionalValue == 0
-    assert strakDao.modelLength.nonDimensionalValue == 4
+    parameterMap = get_Strak_2021_model_parameter_map()
+    assert parameterMap.gasConstant.nonDimensionalValue.magnitude == 8.3145
+    assert parameterMap.modelHeight.nonDimensionalValue.magnitude == 1
+    assert parameterMap.referenceDensity.nonDimensionalValue.magnitude == 0
+    assert parameterMap.modelLength.nonDimensionalValue.magnitude == 4
     assert (
-        format(strakDao.yieldStressOfSpTopLayer.nonDimensionalValue, ".2E")
+        format(
+            parameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude, ".2E"
+        )
         == f"{5.05e5:.2E}"
     )
 
-    assert strakDao.thermalDiffusivity.nonDimensionalValue == 1e-6
-    assert strakDao.thermalExpansivity.nonDimensionalValue == 1e-5
-    assert strakDao.referenceViscosity.nonDimensionalValue == 1
-    assert strakDao.referenceTemperature.nonDimensionalValue == 1
-    assert strakDao.upperMantleViscosity.nonDimensionalValue == 1
-    assert strakDao.lowerMantleViscosity.nonDimensionalValue == 100
-    assert strakDao.spBottomLayerViscosity.nonDimensionalValue == 50
-    assert round(strakDao.spCoreLayerViscosity.nonDimensionalValue) == 1000
-    assert round(strakDao.spTopLayerViscosity.nonDimensionalValue) == 1000
+    assert parameterMap.thermalDiffusivity.nonDimensionalValue.magnitude == 1e-6
+    assert parameterMap.thermalExpansivity.nonDimensionalValue.magnitude == 1e-5
+    assert parameterMap.referenceViscosity.nonDimensionalValue.magnitude == 1
+    assert parameterMap.referenceTemperature.nonDimensionalValue.magnitude == 1
+    assert parameterMap.upperMantleViscosity.nonDimensionalValue.magnitude == 1
+    assert parameterMap.lowerMantleViscosity.nonDimensionalValue.magnitude == 100
+    assert parameterMap.spBottomLayerViscosity.nonDimensionalValue.magnitude == 50
+    assert (
+        round(parameterMap.spCoreLayerViscosity.nonDimensionalValue.magnitude) == 1000
+    )
+    assert round(parameterMap.spTopLayerViscosity.nonDimensionalValue.magnitude) == 1000
 
 
-def test_blueprint_dao():
+def test_blueprint_map():
     bluePrint = get_Strak_2021_model_parameter_map(True)
 
     builder = ModelParameterMapBuilder.fromBluePrint(bluePrint)
-    dao = builder.build()
-    assert repr(dao) == repr(get_Strak_2021_model_parameter_map())
+    paramMap = builder.build()
+    assert repr(paramMap) == repr(get_Strak_2021_model_parameter_map())
 
 
 def test_rayleigh_number():

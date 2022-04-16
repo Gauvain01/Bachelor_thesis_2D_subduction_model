@@ -7,7 +7,7 @@ from modelParameters._Scaling_coefficient import ScalingCoefficient
 @attr.s(frozen=True, repr=True, slots=True, kw_only=True)
 class ModelParameterMap:
     scalingCoefficient: ScalingCoefficient = attr.ib(
-        validator=attr.validators.instance_of(ScalingCoefficient)
+        validator=attr.validators.instance_of(ScalingCoefficient), repr=False
     )
     temperatureContrast: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
@@ -66,6 +66,3 @@ class ModelParameterMap:
     timeScaleStress: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
     )
-
-    def __dict__(self):
-        return {key: item.__dict__() for key, item in super().__dict__()}
