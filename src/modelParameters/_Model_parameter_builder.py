@@ -16,18 +16,22 @@ class ModelParameterBuilder:
         self,
         value: Union[_Unit, _Quantity],
         scalingCoefficientEnum: Union[None, ScalingCoefficientType] = None,
+        nonDimensionalOverrideValue=None,
     ) -> ModelParameter:
-        if isinstance(value, _Unit):
-            if scalingCoefficientEnum is None:
-                raise ValueError(
-                    "value type is pint.unit._Unit but no scalingCoefficientType Was Given"
-                )
+
+        if isinstance(value, _Quantity):
+            if scalingCoefficientEnum is None and nonDimensionalOverrideValue is None:
+                nonDimensionalValue = value.magnitude
             elif scalingCoefficientEnum == ScalingCoefficientType.NONE:
                 nonDimensionalValue = value.magnitude
+            elif nonDimensionalOverrideValue is not None:
+                nonDimensionalValue = nonDimensionalOverrideValue
             else:
                 nonDimensionalValue = self.scalingCoefficient.nonDimensionalizeUnit(
                     value, scalingCoefficientEnum
-                )
+                ).magnitude
+            return ModelParameter(
+                dimensionalValue=value, nonDimensionalValue=nonDimensionalValue
+            )
         else:
-            nonDimensionalValue = value.magnitude
-        return ModelParameter(value, nonDimensionalValue)
+            raise ValueError

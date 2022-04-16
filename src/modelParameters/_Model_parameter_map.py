@@ -1,10 +1,17 @@
 import attr
 
 from modelParameters._Model_parameter import ModelParameter
+from modelParameters._Scaling_coefficient import ScalingCoefficient
 
 
-@attr.s(frozen=True, repr=True, slots=True)
-class ModelParameterDao:
+@attr.s(frozen=True, repr=True, slots=True, kw_only=True)
+class ModelParameterMap:
+    scalingCoefficient: ScalingCoefficient = attr.ib(
+        validator=attr.validators.instance_of(ScalingCoefficient)
+    )
+    temperatureContrast: ModelParameter = attr.ib(
+        validator=attr.validators.instance_of(ModelParameter)
+    )
     modelHeight: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
     )

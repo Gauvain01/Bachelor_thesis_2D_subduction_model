@@ -1,7 +1,9 @@
-from PlatePolygons import SubductionZonePolygons
-from modelParameters._Model_parameter_dao import ModelParameterDao
-from underworld import mesh, visualisation, swarm, mpi, conditions
+from underworld import conditions
 from underworld import function as fn
+from underworld import mesh, mpi, swarm, visualisation
+
+from modelParameters._Model_parameter_map import ModelParameterMap
+from PlatePolygons import SubductionZonePolygons
 from RheologyFunctions import RheologyFunctions
 
 
@@ -9,7 +11,7 @@ class SubductionModel:
     def __init__(
         self,
         name: str,
-        modelParameterSet: ModelParameterDao,
+        modelParameterMap: ModelParameterMap,
         subductionZonePolygons: SubductionZonePolygons,
         stepAmount,
         stepTime,
@@ -17,14 +19,14 @@ class SubductionModel:
     ) -> None:
         self.name = name
         self.subductionZonePolygons = subductionZonePolygons
-        self.parameterSet = modelParameterSet
+        self.parameters = modelParameterMap
         self.mesh = mesh.FeMesh_Cartesian(
             elementType="Q1/dQ0",
             elementRes=(512, 206),
             minCoord=(0.0, 0.0),
             maxCoord=(
-                self.parameterSet.modelLength.nonDimensionalValue.magnitude,
-                self.parameterSet.modelHeight.nonDimensionalValue.magnitude,
+                self.parameters.modelLength.nonDimensionalValue.magnitude,
+                self.parameters.modelHeight.nonDimensionalValue.magnitude,
             ),
             periodic=[True, False],
         )
@@ -43,13 +45,11 @@ class SubductionModel:
         self.figStore = visualisation.Store("output/subduction")
 
         self.totalSteps = (stepAmount,)
-        self.stepTime = (
-            self.parameterSet._scalingCoefficient.nonDimensionalizeUnderworld(
-                stepTime.to_base_units()
-            ).magnitude
-        )
+        self.stepTime = self.parameters.scalingCoefficient.nonDimensionalizeUnderworld(
+            stepTime.to_base_units()
+        ).magnitude
         self.plateVelocity = (
-            self.parameterSet._scalingCoefficient.nonDimensionalizeUnderworld(
+            self.parameters.scalingCoefficient.nonDimensionalizeUnderworld(
                 plateVelocity.to_base_units()
             ).magnitude
         )
@@ -57,7 +57,7 @@ class SubductionModel:
         self._initializeFields()
 
         self.rheologyCalculations = RheologyFunctions(
-            self.parameterSet, self.velocityField
+            self.parameters, self.velocityField
         )
 
         self._initializeMaterialVariableData()
@@ -124,7 +124,7 @@ class SubductionModel:
         self.materialVariable.data[:] = self.upperMantleIndex
         for index in range(len(self.swarm.particleCoordinates.data)):
             coord = self.swarm.particleCoordinates.data[index][:]
-            if coord[1] < self.parameterSet.lowerMantleHeigth.nonDimensionalValue:
+            if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue:
                 self.materialVariable.data[index] = self.lowerMantleIndex
             if self.slabUpperPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.upperSlabIndex
@@ -155,17 +155,17 @@ class SubductionModel:
         visCoreLayer = (
             self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
         )
-        visBottomLayer = self.parameterSet.spBottomLayerViscosity.nonDimensionalValue
+        visBottomLayer = self.parameters.spBottomLayerViscosity.nonDimensionalValue
 
         viscosityMap = {
-            self.upperMantleIndex: self.parameterSet.upperMantleViscosity.nonDimensionalValue,
-            self.lowerMantleIndex: self.parameterSet.lowerMantleViscosity.nonDimensionalValue,
+            self.upperMantleIndex: self.parameters.upperMantleViscosity.nonDimensionalValue,
+            self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue,
             self.lowerSlabIndex: visBottomLayer,
             self.middleSlabIndex: visCoreLayer,
             self.upperSlabIndex: fn.exception.SafeMaths(
                 fn.misc.min(
                     visTopLayer,
-                    self.parameterSet.spTopLayerViscosity.nonDimensionalValue,
+                    self.parameters.spTopLayerViscosity.nonDimensionalValue,
                 )
             ),
         }
@@ -174,19 +174,17 @@ class SubductionModel:
         )
 
     def _initializeStressMapFn(self):
-        viscousStressFn = (
-            2.0
-            * self.viscosityFn
-            * self.rheologyCalculations.getSymmetricStrainRateTensor()
-        )
-        elasticStressFn = (
-            self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
-            / (
-                self.parameterSet.coreShearModulus.nonDimensionalValue
-                * self.parameterSet.timeScaleStress
-            )
-            * self.previousStress
-        )
+        Te = self.rheologyCalculations.getSymmetricStrainRateTensor()
+        visFn = self.viscosityFn
+
+        viscousStressFn = 2.0 * visFn * Te
+
+        visEff = self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
+        shearMod = self.parameters.coreShearModulus.nonDimensionalValue
+        dt = self.parameters.timeScaleStress.nonDimensionalValue
+
+        elasticStressFn = visEff / (shearMod * dt) * self.previousStress
+
         viscoElasticStressFn = viscousStressFn + elasticStressFn
 
         stressMap = {

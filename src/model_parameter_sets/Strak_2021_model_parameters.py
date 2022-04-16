@@ -1,8 +1,8 @@
 import UWGeodynamics as geo
 from modelParameters import (
     ModelParameterBuilder,
-    ScalingCoefficient,
     ModelParameterDaoBuilder,
+    ScalingCoefficient,
     ScalingCoefficientType,
 )
 
@@ -54,118 +54,10 @@ class Strak2021ScalingCoefficient(ScalingCoefficient):
         return visK / lens2
 
 
-strak2021ModelParameterList = [
-    ModelParameter("modelHeight", 2900e3 * u.meter, ScalingCoefficientType.LENGTH),
-    ModelParameter("modelLength", 11600e3 * u.meter, ScalingCoefficientType.LENGTH),
-    ModelParameter(
-        "referenceDensity",
-        3230 * u.kilogram / u.meter**3,
-        ScalingCoefficientType.MANUAL,
-    ).setNondimensionalValue(u.Quantity(0.0)),
-    ModelParameter(
-        "spUmDensityContrast",
-        -62985 * u.kilogram / u.meter**3,
-        ScalingCoefficientType.MANUAL,
-    ).setNondimensionalValue(u.Quantity(1.0)),
-    ModelParameter(
-        "gravitationalAcceleration",
-        9.81 * u.meter / u.second,
-        ScalingCoefficientType.NONE,
-    ),
-    ModelParameter(
-        "referenceTemperature",
-        1573.15 * u.kelvin,
-        ScalingCoefficientType.TEMPERATURE,
-    ),
-    ModelParameter(
-        "temperatureContrast",
-        1573.15 * u.kelvin,
-        ScalingCoefficientType.TEMPERATURE,
-    ),
-    ModelParameter("thermalExpansivity", 1e-5 / u.kelvin, ScalingCoefficientType.NONE),
-    ModelParameter(
-        "thermalDiffusivity",
-        1e-6 * u.meter**2 / u.second,
-        ScalingCoefficientType.NONE,
-    ),
-    ModelParameter(
-        "referenceViscosity",
-        3.5e20 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "lowerViscosityCutoff",
-        3.5e19 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "upperViscosityCutoff",
-        3.5e20 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "lowerMantleViscosity",
-        3.5e22 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "spTopLayerViscosity",
-        3.5e23 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "opCrustLayerViscosity",
-        3.5e23 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "spCoreLayerViscosity",
-        3.5e23 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "spBottomLayerViscosity",
-        1.75e22 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "spEclogitizedTopLayerViscosity",
-        1.75e22 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "opLithosphericMantleViscosityInForearcAndBackarc",
-        1.4e23 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "opLithosphericMantleViscosityInFarBackarc",
-        7e23 * u.pascal * u.second,
-        ScalingCoefficientType.VISCOSITY,
-    ),
-    ModelParameter(
-        "yieldStressOfSpTopLayer", 21e6 * u.pascal, ScalingCoefficientType.STRESS
-    ),
-    ModelParameter("preExponentialFactor", 3e6, ScalingCoefficientType.NONE),
-    ModelParameter(
-        "activationEnergyUpperMantle",
-        530e3 * u.joule / (u.mol),
-        ScalingCoefficientType.NONE,
-    ),
-    ModelParameter(
-        "gasConstant",
-        8.3145 * u.joule / (u.mol * u.kelvin),
-        ScalingCoefficientType.NONE,
-    ),
-    ModelParameter(
-        "activationEnergyInSlab", None, ScalingCoefficientType.MANUAL
-    ).setNondimensionalValue(u.Quantity(0.0)),
-]
-
 modelParameterBuilder = ModelParameterBuilder(Strak2021ScalingCoefficient())
 builder = ModelParameterDaoBuilder(modelParameterBuilder)
 
-strakParameterDao = (
+StrakParameterDao = (
     builder.setGasConstant(u.Quantity(8.3145))
     .setYieldStressOfSpTopLayer(21e6 * u.pascal, ScalingCoefficientType.STRESS)
     .setCoreShearModulus(u.Quantity(1e4))
@@ -181,5 +73,22 @@ strakParameterDao = (
     .setUpperMantleViscosity(
         3.5e20 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
     )
-    .set
+    .setReferenceDensity(u.Quantity(0.0))
+    .setThermalDiffusivity(1e-6 * u.meter**2 / u.second, ScalingCoefficientType.NONE)
+    .setThermalExpansivity(1e-5 * u.meter**2 / u.second, ScalingCoefficientType.NONE)
+    .setReferenceTemperature(1573.15 * u.kelvin, ScalingCoefficientType.TEMPERATURE)
+    .setReferenceViscosity(
+        3.5e20 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
+    )
+    .setSpBottomLayerViscosity(
+        1.75e22 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
+    )
+    .setSpCoreLayerViscosity(
+        3.5e23 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
+    )
+    .setSpTopLayerViscosity(
+        3.5e23 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
+    )
+    .setTimeScaleStress(u.Quantity(1.0))
 )
+print(StrakParameterDao.__dict__)

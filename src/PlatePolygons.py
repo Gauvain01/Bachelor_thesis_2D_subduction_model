@@ -5,13 +5,13 @@ import numpy as np
 import UWGeodynamics as geo
 from UWGeodynamics import UnitRegistry
 
-from modelParameters.Model_parameter_set import ModelParameterDao
+from modelParameters import ModelParameterMap
 
 
 class SubductionZonePolygons:
     def __init__(
         self,
-        parameterSet: ModelParameterDao,
+        parameterMap: ModelParameterMap,
         dip: float,
         dipLength: UnitRegistry,
         plateLength: UnitRegistry,
@@ -26,8 +26,7 @@ class SubductionZonePolygons:
         lithosphericForeArcThickness,
         lithospehricFarBackArcThickness,
     ) -> None:
-        self.parameterSet = parameterSet
-        self.parameterSet.nonDimensionalizeParameters()
+        self.parameterSet = parameterMap
         self.dip = math.radians(dip)
         self._angle2 = 180 - 90 - dip
         self.otherDip = math.radians(self._angle2)
@@ -48,15 +47,15 @@ class SubductionZonePolygons:
         self._calculatePolygons()
 
     def _calculatePolygons(self) -> np.ndarray:
-        beginning = self.parameterSet._scalingCoefficient.scalingForLength(
+        beginning = self.parameterSet.scalingCoefficient.scalingForLength(
             self.beginning
         ).magnitude
 
-        lb = self.parameterSet._scalingCoefficient.scalingForLength(
+        lb = self.parameterSet.scalingCoefficient.scalingForLength(
             self.plateLength + self.beginning
         ).magnitude
 
-        dipLength = self.parameterSet._scalingCoefficient.scalingForLength(
+        dipLength = self.parameterSet.scalingCoefficient.scalingForLength(
             self.dipLength
         ).magnitude
         l1 = dipLength * math.cos(self.dip)
@@ -64,13 +63,13 @@ class SubductionZonePolygons:
         h1 = dipLength * math.sin(self.dip)
 
         modelHeight = self.parameterSet.modelHeight.nonDimensionalValue.magnitude
-        lowerThickness = self.parameterSet._scalingCoefficient.scalingForLength(
+        lowerThickness = self.parameterSet.scalingCoefficient.scalingForLength(
             self.lowerPlateThickness
         ).magnitude
-        middleThickness = self.parameterSet._scalingCoefficient.scalingForLength(
+        middleThickness = self.parameterSet.scalingCoefficient.scalingForLength(
             self.middlePlateThickness
         ).magnitude
-        upperThickness = self.parameterSet._scalingCoefficient.scalingForLength(
+        upperThickness = self.parameterSet.scalingCoefficient.scalingForLength(
             self.upperPlateThickness
         ).magnitude
         totalThick = lowerThickness + upperThickness + middleThickness
@@ -146,7 +145,7 @@ class SubductionZonePolygons:
         # calculate function of equal legged triangle
         # y=ax+b
         self._magnitude = (
-            self.parameterSet._scalingCoefficient.lengthCoefficient.magnitude
+            self.parameterSet.scalingCoefficient.lengthCoefficient.magnitude
         )
         self.elt_a = (
             coord9[1] * self._magnitude - self.coord5[1] * self._magnitude
@@ -167,27 +166,25 @@ class SubductionZonePolygons:
             -self.ups_a * coord4[0] * self._magnitude + coord4[1] * self._magnitude
         )
 
-        foreArcAndBackArcLength = (
-            self.parameterSet._scalingCoefficient.scalingForLength(
-                self.foreArcAndBackArcLength
-            ).magnitude
-        )
-        transitionLength = self.parameterSet._scalingCoefficient.scalingForLength(
+        foreArcAndBackArcLength = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.foreArcAndBackArcLength
+        ).magnitude
+        transitionLength = self.parameterSet.scalingCoefficient.scalingForLength(
             self.transitionLength
         ).magnitude
-        farBackarclength = self.parameterSet._scalingCoefficient.scalingForLength(
+        farBackarclength = self.parameterSet.scalingCoefficient.scalingForLength(
             self.farBackArcLength
         ).magnitude
-        crustThickness = self.parameterSet._scalingCoefficient.scalingForLength(
+        crustThickness = self.parameterSet.scalingCoefficient.scalingForLength(
             self.crustThickness
         ).magnitude
         lithosphericForArcThickness = (
-            self.parameterSet._scalingCoefficient.scalingForLength(
+            self.parameterSet.scalingCoefficient.scalingForLength(
                 self.lithosphericForeArcThickness
             ).magnitude
         )
         lithosphericFarBackArcThicknes = (
-            self.parameterSet._scalingCoefficient.scalingForLength(
+            self.parameterSet.scalingCoefficient.scalingForLength(
                 self.lithosphericFarBackArcThickness
             ).magnitude
         )

@@ -4,16 +4,16 @@ from distutils import core
 from underworld import function as fn
 from underworld import mesh, scaling
 
-from modelParameters.Model_parameter_set import ModelParameterDao
+from modelParameters import ModelParameterMap
 
 u = scaling.units
 
 
 class RheologyFunctions:
     def __init__(
-        self, modelParameterSet: ModelParameterDao, velocityField: mesh.MeshVariable
+        self, modelParameterMap: ModelParameterMap, velocityField: mesh.MeshVariable
     ) -> None:
-        self.modelParameterSet = modelParameterSet
+        self.modelParameterMap = modelParameterMap
         self.velocityField = velocityField
         self.symStrainRate = None
         self.strainRateSecondInvariant = None
@@ -35,52 +35,9 @@ class RheologyFunctions:
         else:
             return self.strainRateSecondInvariant
 
-    def getEffectiveViscosityDislocationCreep(self):
-        # A * exp(E/nRT) * e_dot ^1-n/n
-        E = (
-            self.modelParameterSet.activationEnergyDislocationCreep.dimensionalValue.magnitude
-        )
-        A = (
-            self.modelParameterSet.preExponentialFactorDislocation.dimensionalValue.magnitude
-        )
-        n = self.modelParameterSet.powerLawExponenet.nonDimensionalValue.magnitude
-        R = self.modelParameterSet.gasConstant.dimensionalValue.magnitude
-        T = self.modelParameterSet.referenceTemperature.dimensionalValue.magnitude
-        strainRateSecondInvariant = self.getStrainRateSecondInvariant()
-
-        dislocationViscosity = (
-            A * math.exp((E / (n * R * T))) * strainRateSecondInvariant ** ((1 - n) / n)
-        )
-        scaledDislocationViscosity = (
-            self.modelParameterSet._scalingCoefficient.scalingForViscosity(
-                dislocationViscosity
-            )
-        )
-        return scaledDislocationViscosity
-
-    def getEffectiveViscosityDiffusionCreep(self):
-        # A * exp(Ediff/RT)
-
-        A = (
-            self.modelParameterSet.preExponentialFactorDiffusion.dimensionalValue.magnitude
-        )
-        E = (
-            self.modelParameterSet.activationEnergyDiffusionCreep.dimensionalValue.magnitude
-        )
-        R = self.modelParameterSet.gasConstant.dimensionalValue.magnitude
-        T = self.modelParameterSet.referenceTemperature.dimensionalValue.magnitude
-
-        diffusionViscosity = A * math.exp((E / (R * T)))
-        scaledDiffusionViscosity = (
-            self.modelParameterSet._scalingCoefficient.scalingForViscosity(
-                diffusionViscosity
-            )
-        )
-        return scaledDiffusionViscosity
-
     def getEffectiveViscosityOfUpperLayerVonMises(self):
         sigmaY = (
-            self.modelParameterSet.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+            self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         )
         strainRateSecondInvariant = self.getStrainRateSecondInvariant()
 
@@ -89,34 +46,39 @@ class RheologyFunctions:
         return effectiveViscosity
 
     def getEffectiveViscosityOfViscoElasticCore(self):
-        coreShearModulus = self.modelParameterSet.coreShearModulus.nonDimensionalValue
-        coreVis = self.modelParameterSet.spCoreLayerViscosity.nonDimensionalValue
+        coreShearModulus = self.modelParameterMap.coreShearModulus.nonDimensionalValue
+        coreVis = self.modelParameterMap.spCoreLayerViscosity.nonDimensionalValue
 
         alpha = coreVis / coreShearModulus
-        dt_e = self.modelParameterSet.timeScaleStress.nonDimensionalValue
+        dt_e = self.modelParameterMap.timeScaleStress.nonDimensionalValue
         effVis = (coreVis * dt_e) / (alpha + dt_e)
         return effVis
 
     def getRayleighNumber(self):
         if self.rayLeighNumber is None:
-            ls = self.modelParameterSet.modelHeight.dimensionalValue.magnitude
-            print(ls)
-            rhoRef = self.modelParameterSet.referenceDensity.dimensionalValue.magnitude
-            print(rhoRef)
+            ls = self.modelParameterMap.modelHeight.dimensionalValue.magnitude
+            print(f"{ls=}")
+            rhoRef = self.modelParameterMap.referenceDensity.dimensionalValue.magnitude
+
+            print(f"{rhoRef=}")
             g = (
-                self.modelParameterSet.gravitationalAcceleration.dimensionalValue.magnitude
+                self.modelParameterMap.gravitationalAcceleration.dimensionalValue.magnitude
             )
-            print(g)
-            alpha = self.modelParameterSet.thermalExpansivity.dimensionalValue.magnitude
-            print(alpha)
+
+            print(f"{g=}")
+            alpha = self.modelParameterMap.thermalExpansivity.dimensionalValue.magnitude
+
+            print(f"{alpha=}")
             deltaT = (
-                self.modelParameterSet.temperatureContrast.dimensionalValue.magnitude
+                self.modelParameterMap.temperatureContrast.dimensionalValue.magnitude
             )
-            print(deltaT)
-            k = self.modelParameterSet.thermalDiffusivity.dimensionalValue.magnitude
-            print(k)
-            eta = self.modelParameterSet.referenceViscosity.dimensionalValue.magnitude
-            print(eta)
+            print(f"{deltaT=}")
+
+            k = self.modelParameterMap.thermalDiffusivity.dimensionalValue.magnitude
+            print(f"{k=}")
+
+            eta = self.modelParameterMap.referenceViscosity.dimensionalValue.magnitude
+            print(f"{eta=}")
 
             self.rayLeighNumber = ((ls**3) * rhoRef * g * alpha * deltaT) / (k * eta)
             return self.rayLeighNumber
