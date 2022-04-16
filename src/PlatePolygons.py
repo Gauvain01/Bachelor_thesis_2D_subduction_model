@@ -252,10 +252,8 @@ class SubductionZonePolygons:
 
     def _isNodeOnEqualTriangle(self, modelHeigth: float) -> Tuple:
         if modelHeigth < self.coord5[1]:
-            x = self._upsCoord(modelHeigth)
             return False
         else:
-            x = self._equalLeggedTriangle(modelHeigth)
             return True
 
     def _upsCoord(self, y) -> float:

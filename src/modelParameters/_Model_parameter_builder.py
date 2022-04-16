@@ -2,6 +2,7 @@ from typing import Union
 
 from pint.quantity import _Quantity
 from pint.unit import _Unit
+from underworld.scaling import units as u
 
 from modelParameters._Model_parameter import ModelParameter
 from modelParameters._Scaling_coefficient import ScalingCoefficient
@@ -21,15 +22,22 @@ class ModelParameterBuilder:
 
         if isinstance(value, _Quantity):
             if scalingCoefficientEnum is None and nonDimensionalOverrideValue is None:
-                nonDimensionalValue = value.magnitude
+                nonDimensionalValue = u.Quantity(value.magnitude)
             elif scalingCoefficientEnum == ScalingCoefficientType.NONE:
-                nonDimensionalValue = value.magnitude
+                nonDimensionalValue = u.Quantity(value.magnitude)
             elif nonDimensionalOverrideValue is not None:
-                nonDimensionalValue = nonDimensionalOverrideValue
+                if not isinstance(
+                    nonDimensionalOverrideValue, float
+                ) and not isinstance(nonDimensionalOverrideValue, _Quantity):
+                    raise ValueError
+                elif isinstance(nonDimensionalOverrideValue, _Quantity):
+                    nonDimensionalValue = nonDimensionalOverrideValue
+                else:
+                    nonDimensionalValue = u.Quantity(nonDimensionalOverrideValue)
             else:
                 nonDimensionalValue = self.scalingCoefficient.nonDimensionalizeUnit(
                     value, scalingCoefficientEnum
-                ).magnitude
+                )
             return ModelParameter(
                 dimensionalValue=value, nonDimensionalValue=nonDimensionalValue
             )

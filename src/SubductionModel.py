@@ -109,7 +109,7 @@ class SubductionModel:
         self.upperSlabIndex = 1
         self.lowerSlabIndex = 2
         self.lowerMantleIndex = 4
-        self.middleSlabIndex = 3
+        self.coreSlabIndex = 3
 
     def _initializePolygons(self):
         upperSlabShape = self.subductionZonePolygons.getUpperSlabShapeArray()
@@ -118,7 +118,7 @@ class SubductionModel:
 
         self.slabUpperPoly = fn.shape.Polygon(upperSlabShape)
         self.slabLowerPoly = fn.shape.Polygon(lowerSlabShape)
-        self.slabMiddlePoly = fn.shape.Polygon(middleSlabShape)
+        self.slabCorePoly = fn.shape.Polygon(middleSlabShape)
 
     def _assignMaterialToParticles(self):
         self.materialVariable.data[:] = self.upperMantleIndex
@@ -128,8 +128,8 @@ class SubductionModel:
                 self.materialVariable.data[index] = self.lowerMantleIndex
             if self.slabUpperPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.upperSlabIndex
-            if self.slabMiddlePoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.middleSlabIndex
+            if self.slabCorePoly.evaluate(tuple(coord)):
+                self.materialVariable.data[index] = self.coreSlabIndex
             if self.slabLowerPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.lowerSlabIndex
 
@@ -161,7 +161,7 @@ class SubductionModel:
             self.upperMantleIndex: self.parameters.upperMantleViscosity.nonDimensionalValue,
             self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue,
             self.lowerSlabIndex: visBottomLayer,
-            self.middleSlabIndex: visCoreLayer,
+            self.coreSlabIndex: visCoreLayer,
             self.upperSlabIndex: fn.exception.SafeMaths(
                 fn.misc.min(
                     visTopLayer,
@@ -191,7 +191,7 @@ class SubductionModel:
             self.upperMantleIndex: viscousStressFn,
             self.lowerMantleIndex: viscousStressFn,
             self.lowerSlabIndex: viscousStressFn,
-            self.middleSlabIndex: viscoElasticStressFn,
+            self.coreSlabIndex: viscoElasticStressFn,
             self.upperSlabIndex: viscousStressFn,
         }
         self.stressFn = fn.branching.map(
