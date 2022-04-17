@@ -1,7 +1,9 @@
+import os
 from os import system
+
 from underworld import conditions
 from underworld import function as fn
-from underworld import mesh, mpi, swarm, visualisation, systems
+from underworld import mesh, mpi, swarm, systems, visualisation
 
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
@@ -72,6 +74,7 @@ class SubductionModel:
         self._initializeStokes()
         self._initializeAdvectionDiffusion()
         self._initializeSwarmAdvector()
+        self._initializeVeStressMap()
 
     def _setBoundaryConditions(self):
         self.verticalWalls = (
@@ -188,15 +191,15 @@ class SubductionModel:
         shearMod = self.parameters.coreShearModulus.nonDimensionalValue
         dt = self.parameters.timeScaleStress.nonDimensionalValue
 
-        self.elasticStressFn = visEff / (shearMod * dt) * self.previousStress
+        self.elasticStressFn = visEff / (shearMod * self.dt) * self.previousStress
 
-        viscoElasticStressFn = viscousStressFn + self.elasticStressFn
+        self.viscoElasticStressFn = viscousStressFn + self.elasticStressFn
 
         stressMap = {
             self.upperMantleIndex: viscousStressFn,
             self.lowerMantleIndex: viscousStressFn,
             self.lowerSlabIndex: viscousStressFn,
-            self.coreSlabIndex: viscoElasticStressFn,
+            self.coreSlabIndex: self.viscoElasticStressFn,
             self.upperSlabIndex: viscousStressFn,
         }
         self.stressFn = fn.branching.map(
@@ -240,5 +243,50 @@ class SubductionModel:
             self.velocityField, self.swarm, order=2
         )
 
-    def advectUpdate(self, dt):
+    def _initializeVeStressMap(self):
+        self.veStressMap = {
+            self.upperMantleIndex: [0.0, 0.0, 0.0],
+            self.upperSlabIndex: [0.0, 0.0, 0.0],
+            self.lowerSlabIndex: [0.0, 0.0, 0.0],
+            self.coreSlabIndex: self.viscoElasticStressFn,
+        }
+        self.veStressFn = fn.branching.map(
+            fn_key=self.materialVariable, mapping=self.veStressMap
+        )
+
+    def _initializeSolver(self):
+        try:
+            self.solver = systems.Solver(self.stokes)
+            self.solver.set_inner_method("mumps")
+            self.solver.solve(nonLinearIterate=True)
+        except RuntimeError:
+            self.solver = systems.Solver(self.stokes)
+
+    def _update(self, dt, time, step):
+        dt = self.advectionDiffusion.get_max_dt()
+        dt_e = self.parameters.timeScaleStress.nonDimensionalValue
+
+        if dt > (dt_e / 3.0):
+            dt = dt_e / 3
+
+        phi = dt / dt_e
+
+        veStressFn_data = self.veStressFn.evaluate(swarm)
+
+        self.previousStress.data[:] = (
+            phi * veStressFn_data[:] + (1 - phi) * self.previousStress[:]
+        )
+
+        self.advectionDiffusion.integrate(dt)
         self.swarmAdvector.integrate(dt)
+        return time + dt, step + 1
+
+    def _checkpoint(self, step):
+        stepString = str(step).zfill(5)
+        stepOutputPath = self.outputPath + "/" + stepString
+        os.mkdir(stepOutputPath)
+        os.mkdir(stepOutputPath + "/h5")
+        os.mkdir(stepOutputPath + "/xdmf")
+        os.mkdir(stepOutputPath + "/figures")
+
+        swarmHnd = self.swarm.save(stepOutputPath + "swarm." + stepString + ".h5")
