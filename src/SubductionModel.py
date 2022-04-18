@@ -1,24 +1,28 @@
+from inspect import stack
+import logging
+import math
 import os
-from os import system
+
 
 from underworld import conditions
 from underworld import function as fn
-from underworld import mesh, mpi, swarm, systems, visualisation
+from underworld import mesh, mpi, swarm, systems, utils
 
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
 from RheologyFunctions import RheologyFunctions
+from figureManager import FigureManager
 
 
 class SubductionModel:
     def __init__(
         self,
+        *,
         name: str,
         modelParameterMap: ModelParameterMap,
         subductionZonePolygons: SubductionZonePolygons,
-        stepAmount,
-        stepTime,
-        plateVelocity,
+        totalSteps,
+        stepAmountCheckpoint,
     ) -> None:
         self.name = name
         self.subductionZonePolygons = subductionZonePolygons
@@ -34,35 +38,26 @@ class SubductionModel:
             periodic=[True, False],
         )
         self.rank = mpi.rank
-        self.outputPath = "./output"
 
         self.swarm = swarm.Swarm(mesh=self.mesh)
         self.materialVariable = self.swarm.add_variable(dataType="int", count=1)
         self.previousStress = self.swarm.add_variable(dataType="double", count=3)
-        self.dissipation = self.swarm.add_variable(dataType="double", count=1)
-        self.storedEnergyRate = self.swarm.add_variable(dataType="double", count=1)
+        # self.dissipation = self.swarm.add_variable(dataType="double", count=1)
+        # self.storedEnergyRate = self.swarm.add_variable(dataType="double", count=1)
         self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
             swarm=self.swarm, particlesPerCell=20
         )
         self.swarm.populate_using_layout(self.swarmLayout)
-        self.figStore = visualisation.Store("output/subduction")
 
-        self.totalSteps = (stepAmount,)
-        self.stepTime = self.parameters.scalingCoefficient.nonDimensionalizeUnderworld(
-            stepTime.to_base_units()
-        ).magnitude
-        self.plateVelocity = (
-            self.parameters.scalingCoefficient.nonDimensionalizeUnderworld(
-                plateVelocity.to_base_units()
-            ).magnitude
-        )
+        self.totalSteps = totalSteps
+        self.stepAmountCheckpoint = stepAmountCheckpoint
 
         self._initializeFields()
 
         self.rheologyCalculations = RheologyFunctions(
             self.parameters, self.velocityField
         )
-
+        self.meshHandle = None
         self._initializeMaterialVariableData()
         self._initializePolygons()
         self._assignMaterialToParticles()
@@ -75,6 +70,12 @@ class SubductionModel:
         self._initializeAdvectionDiffusion()
         self._initializeSwarmAdvector()
         self._initializeVeStressMap()
+
+    def _setOutputPath(self):
+        os.mkdir("./output")
+        self.outputPath = f"./output/{self.name}"
+        os.mkdir(f"./output/{self.name}")
+        self.figureManager = FigureManager(self.outputPath, self.name)
 
     def _setBoundaryConditions(self):
         self.verticalWalls = (
@@ -140,21 +141,6 @@ class SubductionModel:
                 self.materialVariable.data[index] = self.coreSlabIndex
             if self.slabLowerPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.lowerSlabIndex
-
-    def getParticlePlot(self):
-        fig = visualisation.Figure(
-            self.figStore, figsize=(2160, 1080), name=f"{self.name} particles"
-        )
-        fig.append(
-            visualisation.objects.Points(
-                self.swarm,
-                self.materialVariable,
-                pointSize=2,
-                colours="green red purple blue yellow white orange",
-                colourBar=False,
-            )
-        )
-        fig.show()
 
     def _initializeViscosityMapFn(self):
         visTopLayer = (
@@ -262,7 +248,7 @@ class SubductionModel:
         except RuntimeError:
             self.solver = systems.Solver(self.stokes)
 
-    def _update(self, dt, time, step):
+    def _update(self, time, step):
         dt = self.advectionDiffusion.get_max_dt()
         dt_e = self.parameters.timeScaleStress.nonDimensionalValue
 
@@ -281,12 +267,119 @@ class SubductionModel:
         self.swarmAdvector.integrate(dt)
         return time + dt, step + 1
 
-    def _checkpoint(self, step):
+    def getMeshHandle(self):
+        if self.meshHandle is None:
+            self.meshHandle = self.mesh.save(self.outputPath + "mesh.00000.h5")
+        return self.meshHandle
+
+    def _checkpoint(self, step, time):
         stepString = str(step).zfill(5)
         stepOutputPath = self.outputPath + "/" + stepString
-        os.mkdir(stepOutputPath)
-        os.mkdir(stepOutputPath + "/h5")
-        os.mkdir(stepOutputPath + "/xdmf")
-        os.mkdir(stepOutputPath + "/figures")
 
-        swarmHnd = self.swarm.save(stepOutputPath + "swarm." + stepString + ".h5")
+        os.mkdir(stepOutputPath)
+        os.mkdir(stepOutputPath + "/h5/")
+        os.mkdir(stepOutputPath + "/xdmf")
+
+        h5Path = stepOutputPath + "/h5/"
+        xdmfPath = stepOutputPath + "/xdmf/"
+
+        swarmHnd = self.swarm.save(h5Path + "swarm.h5")
+        materialVariableHnd = self.materialVariable.save(h5Path + "materialVariable.h5")
+        previousStressHnd = self.previousStress.save(
+            h5Path + "previousStress" + stepString + ".h5"
+        )
+
+        velocityHnd = self.velocityField.save(
+            h5Path + "velocityField" + ".h5", self.getMeshHandle()
+        )
+        pressureHnd = self.pressureField.save(
+            h5Path + "pressureField" + ".h5", self.getMeshHandle()
+        )
+        temperatureHnd = self.temperatureField(
+            h5Path + "temperatureField" + ".h5", self.getMeshHandle()
+        )
+        temperatureDotHnd = self.temperatureDotField(
+            h5Path + "temperatureDotField.h5", self.getMeshHandle()
+        )
+
+        self.materialVariable.xdmf(
+            xdmfPath + "materialVariable.xdmf",
+            varSavedData=materialVariableHnd,
+            varname="materialVariable",
+            swarmSavedData=swarmHnd,
+            swarmname="swarm",
+            modeltime=time,
+        )
+        self.previousStress.xdmf(
+            filename=xdmfPath + "previousStress.xdmf",
+            varSavedData=previousStressHnd,
+            varname="previousStress",
+            swarmSavedData=swarmHnd,
+            swarmname="swarm",
+            modeltime=time,
+        )
+        self.velocityField.xdmf(
+            filename=xdmfPath + "velocityField.xdmf",
+            fieldSavedData=velocityHnd,
+            varname="velocityField",
+            meshname="mesh",
+            meshSavedData=self.getMeshHandle(),
+            modeltime=time,
+        )
+        self.temperatureField.xdmf(
+            filename=xdmfPath + "temperatureField.xdmf",
+            fieldSavedData=temperatureHnd,
+            varname="temperatureField",
+            meshSavedData=self.getMeshHandle(),
+            meshname="mesh",
+            modeltime=time,
+        )
+        self.temperatureDotField.xdmf(
+            filename=xdmfPath + "temperatureDotField.xdmf",
+            fieldSavedData=temperatureDotHnd,
+            varname="temperatureDotField",
+            meshSavedData=self.getMeshHandle(),
+            meshname="mesh",
+            modeltime=time,
+        )
+        self.pressureField.xdmf(
+            filename=xdmfPath + "pressureField.xdmf",
+            fieldSavedData=pressureHnd,
+            varname="pressureField",
+            meshSavedData=self.getMeshHandle(),
+            meshname="mesh",
+            modeltime=time,
+        )
+
+        strainRate2ndInvariant = (
+            self.rheologyCalculations.getStrainRateSecondInvariant()
+        )
+        self.figureManager.saveParticleViscosity(self.swarm, self.viscosityFn)
+        self.figureManager.saveStrainRate(strainRate2ndInvariant, self.mesh)
+        self.figureManager.saveStress2ndInvariant(self.swarm, self.stress2ndInvariant)
+        self.figureManager.saveVelocityMagnitude(self.velocityField, self.mesh)
+
+    def run(self):
+        try:
+
+            velSquared = utils.Integral(
+                fn.math.dot(self.velocityField, self.velocityField), self.mesh
+            )
+            area = utils.Integral(1.0, self.mesh)
+
+            step = 0
+            time = 0.0
+            while step < self.totalSteps:
+                self.solver.solve(nonLinearIterate=True)
+
+                if step % self.stepAmountCheckpoint == 0 or step == self.totalSteps - 1:
+                    Vrms = math.sqrt(velSquared.evaluate()[0] / area.evaluate()[0])
+                    logging.debug(f"{step = } {time = :.3e} {Vrms = :.3e} ")
+                    self._checkpoint(step, time)
+                    newTime, newStep = self._update(time, step)
+                    step = newStep
+                    time = newTime
+
+        except Exception as e:
+            logging.exception(f" Run Failed {e = }", stack_info=True)
+            raise e
