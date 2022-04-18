@@ -29,15 +29,17 @@ class FigureManager:
         )
         fig.save()
 
-    def saveVelocityMagnitude(self, velocityField, mesh) -> None:
-        fig = self._getFig(f"{self.name} Velocity Magnitude")
+    def saveVelocity(self, velocityField, mesh) -> None:
+        fig = self._getFig(f"{self.name} Velocity")
         fig.append(
             visualisation.objects.Surface(
                 mesh,
-                fn.math.sqrt(fn.math.dot(velocityField, velocityField)),
+                velocityField,
+                velocityField,
                 onMesh=True,
             )
         )
+        fig.append(visualisation.objects.VectorArrows(mesh, velocityField))
         fig.save()
 
     def saveStrainRate(self, strainRate2ndInvariant, mesh) -> None:

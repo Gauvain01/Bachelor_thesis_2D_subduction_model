@@ -357,7 +357,7 @@ class SubductionModel:
         self.figureManager.saveParticleViscosity(self.swarm, self.viscosityFn)
         self.figureManager.saveStrainRate(strainRate2ndInvariant, self.mesh)
         self.figureManager.saveStress2ndInvariant(self.swarm, self.stress2ndInvariant)
-        self.figureManager.saveVelocityMagnitude(self.velocityField, self.mesh)
+        self.figureManager.saveVelocity(self.velocityField, self.mesh)
 
     def run(self):
         try:
