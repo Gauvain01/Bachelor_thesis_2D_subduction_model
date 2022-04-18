@@ -1,17 +1,16 @@
-from inspect import stack
 import logging
 import math
 import os
-
+from inspect import stack
 
 from underworld import conditions
 from underworld import function as fn
 from underworld import mesh, mpi, swarm, systems, utils
 
+from figureManager import FigureManager
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
 from RheologyFunctions import RheologyFunctions
-from figureManager import FigureManager
 
 
 class SubductionModel:
@@ -37,7 +36,6 @@ class SubductionModel:
             ),
             periodic=[True, False],
         )
-        self.rank = mpi.rank
 
         self.swarm = swarm.Swarm(mesh=self.mesh)
         self.materialVariable = self.swarm.add_variable(dataType="int", count=1)
@@ -276,9 +274,11 @@ class SubductionModel:
         stepString = str(step).zfill(5)
         stepOutputPath = self.outputPath + "/" + stepString
 
-        os.mkdir(stepOutputPath)
-        os.mkdir(stepOutputPath + "/h5/")
-        os.mkdir(stepOutputPath + "/xdmf")
+        if mpi.rank == 0:
+            os.mkdir(stepOutputPath)
+            os.mkdir(stepOutputPath + "/h5/")
+            os.mkdir(stepOutputPath + "/xdmf")
+        mpi.barrier()
 
         h5Path = stepOutputPath + "/h5/"
         xdmfPath = stepOutputPath + "/xdmf/"
@@ -295,10 +295,10 @@ class SubductionModel:
         pressureHnd = self.pressureField.save(
             h5Path + "pressureField" + ".h5", self.getMeshHandle()
         )
-        temperatureHnd = self.temperatureField(
+        temperatureHnd = self.temperatureField.save(
             h5Path + "temperatureField" + ".h5", self.getMeshHandle()
         )
-        temperatureDotHnd = self.temperatureDotField(
+        temperatureDotHnd = self.temperatureDotField.save(
             h5Path + "temperatureDotField.h5", self.getMeshHandle()
         )
 
@@ -383,3 +383,6 @@ class SubductionModel:
         except Exception as e:
             logging.exception(f" Run Failed {e = }", stack_info=True)
             raise e
+
+
+# TODO add velocity arrow plot as a figure to checkpoint, create a start from checkpoint function
