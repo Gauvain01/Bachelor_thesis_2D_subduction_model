@@ -39,7 +39,8 @@ class ModelParameterBuilder:
                     value, scalingCoefficientEnum
                 )
             return ModelParameter(
-                dimensionalValue=value, nonDimensionalValue=nonDimensionalValue
+                dimensionalValue=value,
+                nonDimensionalValue=nonDimensionalValue,
             )
         else:
             raise ValueError

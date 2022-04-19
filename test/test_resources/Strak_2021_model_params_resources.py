@@ -63,7 +63,7 @@ def get_Strak_2021_model_parameter_map(blueprint=False) -> ModelParameterMap:
         .setCoreShearModulus(u.Quantity(1e4))
         .setLowerMantleHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
         .setModelHeight(2900e3 * u.meter, ScalingCoefficientType.LENGTH)
-        .setModelLength(11600e3 * u.meter, ScalingCoefficientType.LENGTH)
+        .setModelLength(8000e3 * u.meter, ScalingCoefficientType.LENGTH)
         .setGravitationalAcceleration(
             9.81 * u.meter / u.second**2, ScalingCoefficientType.NONE
         )
@@ -96,7 +96,9 @@ def get_Strak_2021_model_parameter_map(blueprint=False) -> ModelParameterMap:
         .setSpTopLayerViscosity(
             3.5e23 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
         )
-        .setTimeScaleStress(u.Quantity(1.0))
+        .setTimeScaleStress(
+            (2e4 * u.years).to_base_units(), ScalingCoefficientType.TIME
+        )
         .setTemperatureContrast(1573.15 * u.kelvin, ScalingCoefficientType.TEMPERATURE)
     )
     if blueprint:

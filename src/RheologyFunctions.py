@@ -36,21 +36,28 @@ class RheologyFunctions:
             return self.strainRateSecondInvariant
 
     def getEffectiveViscosityOfUpperLayerVonMises(self):
-        sigmaY = (
-            self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
-        )
+        # sigmaY = (
+        #     self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+        # )
         strainRateSecondInvariant = self.getStrainRateSecondInvariant()
 
-        effectiveViscosity = (sigmaY) / (2 * strainRateSecondInvariant)
+        # effectiveViscosity = (sigmaY) / (2 * strainRateSecondInvariant)
 
-        return effectiveViscosity
+        # return effectiveViscosity
+        cohesion = 0.06
+        vonMises = 0.5 * cohesion / (strainRateSecondInvariant + 1.0e-18)
+        return vonMises
 
     def getEffectiveViscosityOfViscoElasticCore(self):
-        coreShearModulus = self.modelParameterMap.coreShearModulus.nonDimensionalValue
-        coreVis = self.modelParameterMap.spCoreLayerViscosity.nonDimensionalValue
+        coreShearModulus = (
+            self.modelParameterMap.coreShearModulus.nonDimensionalValue.magnitude
+        )
+        coreVis = (
+            self.modelParameterMap.spCoreLayerViscosity.nonDimensionalValue.magnitude
+        )
 
         alpha = coreVis / coreShearModulus
-        dt_e = self.modelParameterMap.timeScaleStress.nonDimensionalValue
+        dt_e = self.modelParameterMap.timeScaleStress.nonDimensionalValue.magnitude
         effVis = (coreVis * dt_e) / (alpha + dt_e)
         return effVis
 
