@@ -21,10 +21,10 @@ def test_model():
     model = SubductionModel(
         name="test",
         modelParameterMap=get_Strak_2021_model_parameter_map(),
-        stepAmountCheckpoint=10,
+        stepAmountCheckpoint=2,
         subductionZonePolygons=polygons,
-        totalSteps=100,
+        totalSteps=10,
     )
-
+    model.run()
     assert isinstance(polygons, SubductionZonePolygons)
     assert isinstance(model, SubductionModel)

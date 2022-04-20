@@ -1,5 +1,5 @@
 from underworld import function as fn
-from underworld import visualisation
+from underworld import mpi, visualisation
 
 
 class FigureManager:
@@ -34,8 +34,7 @@ class FigureManager:
         fig.append(
             visualisation.objects.Surface(
                 mesh,
-                velocityField,
-                velocityField,
+                fn.math.sqrt(fn.math.dot(velocityField, velocityField)),
                 onMesh=True,
             )
         )
@@ -63,4 +62,5 @@ class FigureManager:
         fig.append(visualisation.objects.Points(swarm, stress2ndInvariant, pointSize=2))
 
     def incrementStoreStep(self) -> None:
-        self.store.step += 1
+        if mpi.rank == 0:
+            self.store.step += 1

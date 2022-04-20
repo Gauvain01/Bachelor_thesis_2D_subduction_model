@@ -9,6 +9,7 @@ from underworld.function._function import Function
 
 from CheckPointManager import CheckPointManager
 from FigureManager import FigureManager
+from modelParameters import ScalingCoefficientType
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
 from RheologyFunctions import RheologyFunctions
@@ -57,10 +58,9 @@ class SubductionModel:
         self._initMeshAndField()
         self.materialVariable = self.swarm.add_variable(dataType="int", count=1)
         self.previousStress = self.swarm.add_variable(dataType="double", count=3)
+        self.previousStress.data[:] = [0.0, 0.0, 0.0]
         self._initializeFields()
-        self.rheologyCalculations = RheologyFunctions(
-            self.parameters, self.velocityField
-        )
+        self.rheologyCalculations = RheologyFunctions(self.parameters)
         self.meshHandle = None
         self._initializeMaterialVariableDataIndices()
         self._initializePolygons()
@@ -73,6 +73,7 @@ class SubductionModel:
         self._initializeAdvectionDiffusion()
         self._initializeSwarmAdvector()
         self._initializeVeStressMap()
+        self._initializeSolver()
 
     def _initFromCheckPoint(self, step):
         manager = CheckPointManager(self.name, self.outputPath)
@@ -88,9 +89,7 @@ class SubductionModel:
         self.temperatureDotField = manager.getTemperatureDotField(step, self.mesh)
         self.meshHandle = None
         self.currentTime = manager.getLastTime(step)
-        self.rheologyCalculations = RheologyFunctions(
-            self.parameters, self.velocityField
-        )
+        self.rheologyCalculations = RheologyFunctions(self.parameters)
 
         self._initializeMaterialVariableDataIndices()
         self._setBoundaryConditions()
@@ -101,11 +100,14 @@ class SubductionModel:
         self._initializeAdvectionDiffusion()
         self._initializeSwarmAdvector()
         self._initializeVeStressMap()
+        self._initializeSolver()
+        if mpi.rank == 0:
+            self.figureManager.store.step = self.currentStep
 
     def _initMeshAndField(self):
         self.mesh = mesh.FeMesh_Cartesian(
             elementType="Q1/dQ0",
-            elementRes=(512, 206),
+            elementRes=(200, 100),
             minCoord=(0.0, 0.0),
             maxCoord=(
                 self.parameters.modelLength.nonDimensionalValue.magnitude,
@@ -123,6 +125,10 @@ class SubductionModel:
         if mpi.rank == 0:
             try:
                 os.mkdir("./output")
+
+            except FileExistsError:
+                pass
+            try:
                 os.mkdir(f"./output/{self.name}")
             except FileExistsError:
                 pass
@@ -158,9 +164,10 @@ class SubductionModel:
 
     def _initializeFields(self):
         self.velocityField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=2)
-        self.pressureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.pressureField = mesh.MeshVariable(mesh=self.mesh.subMesh, nodeDofCount=1)
         self.temperatureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
         self.temperatureDotField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.velocityField.data[:] = [0.0, 0.0]
         self.pressureField.data[:] = 0.0
         self.temperatureDotField.data[:] = 0.0
         self.temperatureField.data[:] = 0
@@ -169,7 +176,7 @@ class SubductionModel:
         self.upperMantleIndex = 0
         self.upperSlabIndex = 1
         self.lowerSlabIndex = 2
-        self.lowerMantleIndex = 4
+        # self.lowerMantleIndex = 4
         self.coreSlabIndex = 3
 
     def _initializePolygons(self):
@@ -185,8 +192,8 @@ class SubductionModel:
         self.materialVariable.data[:] = self.upperMantleIndex
         for index in range(len(self.swarm.particleCoordinates.data)):
             coord = self.swarm.particleCoordinates.data[index][:]
-            if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue:
-                self.materialVariable.data[index] = self.lowerMantleIndex
+            # if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude:
+            #     self.materialVariable.data[index] = self.lowerMantleIndex
             if self.slabUpperPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.upperSlabIndex
             if self.slabCorePoly.evaluate(tuple(coord)):
@@ -196,36 +203,49 @@ class SubductionModel:
 
     def _initializeViscosityMapFn(self):
         visTopLayer = (
-            self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises()
+            self.rheologyCalculations.getEffectiveViscosityOfUpperLayerVonMises(
+                self.velocityField
+            )
+            # self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
         )
         visCoreLayer = (
             self.rheologyCalculations.getEffectiveViscosityOfViscoElasticCore()
+            # self.parameters.spCoreLayerViscosity.nonDimensionalValue.magnitude
         )
         visBottomLayer = (
             self.parameters.spBottomLayerViscosity.nonDimensionalValue.magnitude
         )
-        var = fn.exception.SafeMaths(
+        toplayerViscosity = (
+            self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
+        )
+
+        afterStep = fn.exception.SafeMaths(
             fn.misc.min(
                 visTopLayer,
-                self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude,
+                toplayerViscosity,
             )
         )
-        print(type(self.parameters.upperMantleViscosity.nonDimensionalValue))
-        print(type(self.parameters.lowerMantleViscosity.nonDimensionalValue))
+        conditionalTopLayer = fn.branching.conditional(
+            (
+                (self.currentStep >= 1, afterStep),
+                (self.currentStep < 1, toplayerViscosity),
+            )
+        )
 
+        # print(f"{var = }")
         viscosityMap = {
             self.upperMantleIndex: self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude,
-            self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude,
-            self.lowerSlabIndex: visBottomLayer,
+            # self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude,
+            self.lowerSlabIndex: round(visBottomLayer, 1),
             self.coreSlabIndex: visCoreLayer,
-            self.upperSlabIndex: var,
+            self.upperSlabIndex: conditionalTopLayer,
         }
         self.viscosityFn = fn.branching.map(
             fn_key=self.materialVariable, mapping=viscosityMap
         )
 
     def _initializeStressMapFn(self):
-        Te = self.rheologyCalculations.getSymmetricStrainRateTensor()
+        Te = self.rheologyCalculations.getSymmetricStrainRateTensor(self.velocityField)
         visFn = self.viscosityFn
 
         viscousStressFn = 2.0 * visFn * Te
@@ -240,7 +260,7 @@ class SubductionModel:
 
         stressMap = {
             self.upperMantleIndex: viscousStressFn,
-            self.lowerMantleIndex: viscousStressFn,
+            # self.lowerMantleIndex: viscousStressFn,
             self.lowerSlabIndex: viscousStressFn,
             self.coreSlabIndex: self.viscoElasticStressFn,
             self.upperSlabIndex: viscousStressFn,
@@ -298,30 +318,32 @@ class SubductionModel:
         )
 
     def _initializeSolver(self):
-        try:
-            self.solver = systems.Solver(self.stokes)
-            self.solver.set_inner_method("mumps")
-            self.solver.solve(nonLinearIterate=True)
-        except RuntimeError:
-            self.solver = systems.Solver(self.stokes)
+        # try:
+        self.solver = systems.Solver(self.stokes)
+        self.solver.set_inner_method("mumps")
+
+    # except RuntimeError:
+    #     self.solver = systems.Solver(self.stokes)
 
     def _update(self, time, step):
         dt = self.advectionDiffusion.get_max_dt()
-        dt_e = self.parameters.timeScaleStress.nonDimensionalValue
+
+        dt_e = self.parameters.timeScaleStress.nonDimensionalValue.magnitude
 
         if dt > (dt_e / 3.0):
             dt = dt_e / 3
 
         phi = dt / dt_e
 
-        veStressFn_data = self.veStressFn.evaluate(swarm)
+        veStressFn_data = self.veStressFn.evaluate(self.swarm)
 
         self.previousStress.data[:] = (
-            phi * veStressFn_data[:] + (1 - phi) * self.previousStress[:]
+            phi * veStressFn_data[:] + (1 - phi) * self.previousStress.data[:]
         )
 
         self.advectionDiffusion.integrate(dt)
         self.swarmAdvector.integrate(dt)
+        dt = dt * self.parameters.scalingCoefficient.timeCoefficient.magnitude
         return time + dt, step + 1
 
     def getMeshHandle(self):
@@ -350,63 +372,66 @@ class SubductionModel:
             temperatureDotField=self.temperatureDotField,
             figureManager=self.figureManager,
             meshHandle=self.getMeshHandle(),
-            strainRate2ndInvariant=self.rheologyCalculations.getStrainRateSecondInvariant(),
+            strainRate2ndInvariant=self.rheologyCalculations.getStrainRateSecondInvariant(
+                self.velocityField
+            ),
             viscosityFn=self.viscosityFn,
             stress2ndInvariant=self.stress2ndInvariant,
             time=time,
         )
 
     def run(self):
-        try:
+        # try:
 
-            velSquared = utils.Integral(
-                fn.math.dot(self.velocityField, self.velocityField), self.mesh
-            )
-            area = utils.Integral(1.0, self.mesh)
+        velSquared = utils.Integral(
+            fn.math.dot(self.velocityField, self.velocityField), self.mesh
+        )
+        area = utils.Integral(1.0, self.mesh)
 
-            while self.currentStep < self.totalSteps:
-                self.solver.solve(nonLinearIterate=True)
+        while self.currentStep < self.totalSteps:
+            # self.solver.set_penalty(100)
+            self.solver.solve(nonLinearIterate=True, nonLinearTolerance=0.1)
 
-                if (
-                    self.currentStep % self.stepAmountCheckpoint == 0
-                    or self.currentStep == self.totalSteps - 1
-                ):
-                    self._checkpoint(self.currentStep, self.currentTime)
-
-                    Vrms = math.sqrt(velSquared.evaluate()[0] / area.evaluate()[0])
-                    logging.debug(
-                        f"{self.name = }, {self.currentStep = } {self.currentTime = :.3e} {Vrms = :.3e} "
-                    )
-                newTime, newStep = self._update(self.currentTime, self.currentStep)
-                self.currentStep = newStep
-                self.currentTime = newTime
-                self.figureManager.incrementStoreStep()
-
-        except KeyboardInterrupt:
-            try:
-                Vrms = math.sqrt(velSquared.evaluate()[0] / area.evaluate()[0])
+            if (
+                self.currentStep % self.stepAmountCheckpoint == 0
+                or self.currentStep == self.totalSteps - 1
+            ):
                 self._checkpoint(self.currentStep, self.currentTime)
-                logging.debug(
-                    f"sucessfully checkpointed after keyboardInterrupt {self.currentStep =}, {self.currentTime = }, {Vrms = }"
-                )
-            except Exception as e:
-                logging.exception(
-                    f" Failed final checkpoint after KeyboardInterrupt {e = }"
-                )
-                raise e
 
-        except Exception as e:
-            logging.exception(f" Run Failed {e = }", stack_info=True)
-            try:
                 Vrms = math.sqrt(velSquared.evaluate()[0] / area.evaluate()[0])
-                self._checkpoint(self.currentStep, self.currentTime)
                 logging.debug(
-                    f"sucessfully checkpointed after exception {self.currentStep =}, {self.currentTime = }, {Vrms = }"
+                    f"{self.name = }, {self.currentStep = } {self.currentTime = :.3e} {Vrms = :.3e} "
                 )
-                raise e
-            except Exception as a:
-                logging.exception(f" Failed final checkpoint {a = }")
-                raise a
+            newTime, newStep = self._update(self.currentTime, self.currentStep)
+            self.currentStep = newStep
+            self.currentTime = newTime
+            self.figureManager.incrementStoreStep()
+
+    # except KeyboardInterrupt:
+    # try:
+    #     Vrms = math.sqrt(velSquared.evaluate()[0] / area.evaluate()[0])
+    #     self._checkpoint(self.currentStep, self.currentTime)
+    #     logging.debug(
+    #         f"sucessfully checkpointed after keyboardInterrupt {self.currentStep =}, {self.currentTime = }, {Vrms = }"
+    #     )
+    # except Exception as e:
+    #     logging.exception(
+    #         f" Failed final checkpoint after KeyboardInterrupt {e = }"
+    #     )
+    #     raise e
+
+    # except Exception as e:
+    #     logging.exception(f" Run Failed {e = }", stack_info=True)
+    # try:
+    #     Vrms = math.sqrt(velSquared.evaluate()[0] / area.evaluate()[0])
+    #     self._checkpoint(self.currentStep, self.currentTime)
+    #     logging.debug(
+    #         f"sucessfully checkpointed after exception {self.currentStep =}, {self.currentTime = }, {Vrms = }"
+    #     )
+    #     raise e
+    # except Exception as a:
+    #     logging.exception(f" Failed final checkpoint {a = }")
+    #     raise a
 
 
 # TODO create a start from checkpoint function

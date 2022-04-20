@@ -2,7 +2,7 @@ import math
 from distutils import core
 
 from underworld import function as fn
-from underworld import mesh, scaling
+from underworld import mesh, mpi, scaling
 
 from modelParameters import ModelParameterMap
 
@@ -10,43 +10,33 @@ u = scaling.units
 
 
 class RheologyFunctions:
-    def __init__(
-        self, modelParameterMap: ModelParameterMap, velocityField: mesh.MeshVariable
-    ) -> None:
+    def __init__(self, modelParameterMap: ModelParameterMap) -> None:
         self.modelParameterMap = modelParameterMap
-        self.velocityField = velocityField
+
         self.symStrainRate = None
         self.strainRateSecondInvariant = None
         self.rayLeighNumber = None
 
-    def getSymmetricStrainRateTensor(self):
-        if self.symStrainRate is None:
-            self.symStrainRate = fn.tensor.symmetric(self.velocityField.fn_gradient)
-            return self.symStrainRate
-        else:
-            return self.symStrainRate
+    def getSymmetricStrainRateTensor(self, velocityField):
+        symStrainRate = fn.tensor.symmetric(velocityField.fn_gradient)
+        return symStrainRate
 
-    def getStrainRateSecondInvariant(self):
-        if self.strainRateSecondInvariant is None:
-            self.strainRateSecondInvariant = fn.tensor.second_invariant(
-                fn.tensor.symmetric(self.velocityField.fn_gradient)
-            )
-            return self.strainRateSecondInvariant
-        else:
-            return self.strainRateSecondInvariant
+    def getStrainRateSecondInvariant(self, velocityField):
+        strainRateSecondInvariant = fn.tensor.second_invariant(
+            fn.tensor.symmetric(velocityField.fn_gradient)
+        )
+        return strainRateSecondInvariant
 
-    def getEffectiveViscosityOfUpperLayerVonMises(self):
-        # sigmaY = (
-        #     self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
-        # )
-        strainRateSecondInvariant = self.getStrainRateSecondInvariant()
+    def getEffectiveViscosityOfUpperLayerVonMises(self, velocityField):
 
-        # effectiveViscosity = (sigmaY) / (2 * strainRateSecondInvariant)
+        sigmaY = (
+            self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+        )
+        strainRateSecondInvariant = self.getStrainRateSecondInvariant(velocityField)
 
-        # return effectiveViscosity
-        cohesion = 0.06
-        vonMises = 0.5 * cohesion / (strainRateSecondInvariant + 1.0e-18)
-        return vonMises
+        effectiveViscosity = 0.5 * (sigmaY / (strainRateSecondInvariant + +1.0e-18))
+
+        return effectiveViscosity
 
     def getEffectiveViscosityOfViscoElasticCore(self):
         coreShearModulus = (

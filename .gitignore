@@ -14,4 +14,9 @@ test/*.pyc
 /.pyc
 /.cpython
 /.cpython
+*.h5
+*.xdmf
+*.gldb
+*.json
+
 

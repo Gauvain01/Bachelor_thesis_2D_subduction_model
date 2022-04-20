@@ -1,3 +1,5 @@
+from underworld.scaling import units as u
+
 from modelParameters import (
     ModelParameterBuilder,
     ModelParameterMap,
@@ -5,7 +7,6 @@ from modelParameters import (
     ScalingCoefficient,
     ScalingCoefficientType,
 )
-from underworld.scaling import units as u
 
 
 class Strak2021ScalingCoefficient(ScalingCoefficient):
@@ -60,10 +61,10 @@ def get_Strak_2021_model_parameter_map(blueprint=False) -> ModelParameterMap:
     StrakParameterDao = (
         builder.setGasConstant(8.3145 * u.pascal * u.second)
         .setYieldStressOfSpTopLayer(21e6 * u.pascal, ScalingCoefficientType.STRESS)
-        .setCoreShearModulus(u.Quantity(1e4))
+        .setCoreShearModulus(4.0e8 * u.pascal, ScalingCoefficientType.STRESS)
         .setLowerMantleHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
-        .setModelHeight(1000e3 * u.meter, ScalingCoefficientType.LENGTH)
-        .setModelLength(8000e3 * u.meter, ScalingCoefficientType.LENGTH)
+        .setModelHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
+        .setModelLength(11800e3 * u.meter, ScalingCoefficientType.LENGTH)
         .setGravitationalAcceleration(
             9.81 * u.meter / u.second**2, ScalingCoefficientType.NONE
         )
