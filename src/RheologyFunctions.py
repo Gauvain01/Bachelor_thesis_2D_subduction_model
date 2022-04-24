@@ -23,7 +23,7 @@ class RheologyFunctions:
 
     def getStrainRateSecondInvariant(self, velocityField):
         strainRateSecondInvariant = fn.tensor.second_invariant(
-            fn.tensor.symmetric(velocityField.fn_gradient)
+            self.getSymmetricStrainRateTensor(velocityField)
         )
         return strainRateSecondInvariant
 
@@ -32,10 +32,11 @@ class RheologyFunctions:
         sigmaY = (
             self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         )
-        strainRateSecondInvariant = self.getStrainRateSecondInvariant(velocityField)
+        strainRateSecondInvariant = fn.tensor.second_invariant(
+            fn.tensor.symmetric(velocityField.fn_gradient)
+        )
 
-        effectiveViscosity = 0.5 * (sigmaY / (strainRateSecondInvariant + +1.0e-18))
-
+        effectiveViscosity = 0.5 * sigmaY / (strainRateSecondInvariant + 1e-15)
         return effectiveViscosity
 
     def getEffectiveViscosityOfViscoElasticCore(self):

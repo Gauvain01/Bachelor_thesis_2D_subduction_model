@@ -22,15 +22,13 @@ class CheckPointManager:
     def _getXdmfPath(self, step: int):
         return self._getStepOutputPath(step) + "/xdmf/"
 
-    def getMesh(self) -> Mesh.FeMesh_Cartesian:
+    def getMesh(self, mesh) -> Mesh.FeMesh_Cartesian:
         meshPath = self.outputPath + "mesh.00000.h5"
-        mesh = Mesh.FeMesh_Cartesian.load(meshPath)
-        return mesh
+        mesh.load(filename=meshPath)
 
-    def getSwarm(self, step) -> Swarm:
+    def getSwarm(self, swarm, step) -> Swarm:
         swarmPath = self._getH5Path(step) + "swarm.h5"
-        swarm = Swarm.load(swarmPath)
-        return swarm
+        swarm.load(swarmPath)
 
     def getMaterialVariable(self, step, swarm: Swarm):
         mvarPath = self._getH5Path(step) + "materialVariable.h5"
@@ -47,19 +45,19 @@ class CheckPointManager:
     def getVelocityField(self, step, mesh: Mesh.FeMesh_Cartesian):
         path = self._getH5Path(step) + "velocityField.h5"
         field = Mesh.MeshVariable(mesh=mesh, nodeDofCount=2)
-        field.load(path)
+        field.load(path, interpolate=True)
         return field
 
     def getPressureField(self, step, mesh: Mesh.FeMesh_Cartesian):
         path = self._getH5Path(step) + "pressureField.h5"
         field = Mesh.MeshVariable(mesh=mesh, nodeDofCount=1)
-        field.load(path)
+        field.load(path, interpolate=True)
         return field
 
     def getTemperatureField(self, step, mesh: Mesh.FeMesh_Cartesian):
         path = self._getH5Path(step) + "temperatureField.h5"
         field = Mesh.MeshVariable(mesh=mesh, nodeDofCount=1)
-        field.load(path)
+        field.load(path, interpolate=True)
         return field
 
     def getTemperatureDotField(self, step, mesh: Mesh.FeMesh_Cartesian):
@@ -70,20 +68,20 @@ class CheckPointManager:
 
     def getLastTime(self, step):
         path = self._getStepOutputPath(step) + "/time.json"
-        return json.load(path)
+        with open(path, "r") as f:
+            return json.load(f)
 
     def checkPoint(
         self,
         *,
         step,
-        swarm,
+        swarm: Swarm,
         mesh,
         materialVariable,
         previousStress,
         velocityField,
         pressureField,
         temperatureField,
-        temperatureDotField,
         figureManager,
         meshHandle,
         time,
@@ -114,9 +112,6 @@ class CheckPointManager:
         pressureHnd = pressureField.save(h5Path + "pressureField" + ".h5", meshHandle)
         temperatureHnd = temperatureField.save(
             h5Path + "temperatureField" + ".h5", meshHandle
-        )
-        temperatureDotHnd = temperatureDotField.save(
-            h5Path + "temperatureDotField.h5", meshHandle
         )
 
         materialVariable.xdmf(
@@ -151,14 +146,7 @@ class CheckPointManager:
             meshname="mesh",
             modeltime=time,
         )
-        temperatureDotField.xdmf(
-            filename=xdmfPath + "temperatureDotField.xdmf",
-            fieldSavedData=temperatureDotHnd,
-            varname="temperatureDotField",
-            meshSavedData=meshHandle,
-            meshname="mesh",
-            modeltime=time,
-        )
+
         pressureField.xdmf(
             filename=xdmfPath + "pressureField.xdmf",
             fieldSavedData=pressureHnd,
@@ -168,7 +156,7 @@ class CheckPointManager:
             modeltime=time,
         )
 
-        figureManager.saveParticleViscosity(swarm, viscosityFn)
-        figureManager.saveStrainRate(strainRate2ndInvariant, mesh)
-        figureManager.saveStress2ndInvariant(swarm, stress2ndInvariant)
-        figureManager.saveVelocity(velocityField, mesh)
+        # figureManager.saveParticleViscosity(swarm, viscosityFn)
+        # figureManager.saveStrainRate(strainRate2ndInvariant, mesh)
+        # figureManager.saveStress2ndInvariant(swarm, stress2ndInvariant)
+        # figureManager.saveVelocity(velocityField, mesh, swarm, viscosityFn)
