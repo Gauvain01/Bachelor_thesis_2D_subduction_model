@@ -96,9 +96,7 @@ def get_Strak_2021_model_parameter_map(blueprint=False) -> ModelParameterMap:
         .setSpTopLayerViscosity(
             3.5e23 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
         )
-        .setTimeScaleStress(
-            (2e4 * u.years).to_base_units(), ScalingCoefficientType.TIME
-        )
+        .setDeltaTime((2e4 * u.years).to_base_units(), ScalingCoefficientType.TIME)
         .setTemperatureContrast(1573.15 * u.kelvin, ScalingCoefficientType.TEMPERATURE)
     )
     if blueprint:

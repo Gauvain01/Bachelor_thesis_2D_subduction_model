@@ -21,12 +21,12 @@ if __name__ == "__main__":
     model = SubductionModel(
         name="test2",
         modelParameterMap=get_Strak_2021_model_parameter_map(),
-        resolution=(44, 44),
-        stepAmountCheckpoint=2,
+        resolution=(200, 100),
+        stepAmountCheckpoint=10,
         subductionZonePolygons=polygons,
-        totalSteps=10,
+        totalSteps=50,
     )
-    # model.run()
+    model.run()
 
-lv = FigureViewer("./output/test2")
-lv.fromCheckPoint(9, model)
+# lv = FigureViewer("./output/test2")
+# lv.fromCheckPoint(49, model)

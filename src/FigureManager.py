@@ -64,9 +64,15 @@ class FigureManager:
         self.saveFig(fig)
 
     def saveTemperatureField(self, mesh, temperatureField):
-        fig = self._getFig(f"{self.name} Viscosity")
-        fig.append(visualisation.objects.Surface(mesh, temperatureField, onMesh=True))
+        fig = self._getFig(f"{self.name} Temperature")
+        fig.append(visualisation.objects.Surface(mesh, temperatureField))
         self.saveFig(fig)
+
+    def saveTemperatureDotField(self, mesh, temperatureDotField):
+        fig = self._getFig(f"{self.name} TemperatureDotField")
+        fig.append(
+            visualisation.objects.Surface(mesh, temperatureDotField, onMesh=True)
+        )
 
     def saveStress2ndInvariant(self, swarm, stress2ndInvariant) -> None:
         fig = self._getFig(f"{self.name} Stress 2nd Invariant")

@@ -82,6 +82,7 @@ class CheckPointManager:
         velocityField,
         pressureField,
         temperatureField,
+        temperatureDotField,
         figureManager,
         meshHandle,
         time,
@@ -107,7 +108,9 @@ class CheckPointManager:
         swarmHnd = swarm.save(h5Path + "swarm.h5")
         materialVariableHnd = materialVariable.save(h5Path + "materialVariable.h5")
         previousStressHnd = previousStress.save(h5Path + "previousStress.h5")
-
+        temperatureDotHnd = temperatureDotField.save(
+            h5Path + "temperatureDotField" + ".h5", meshHandle
+        )
         velocityHnd = velocityField.save(h5Path + "velocityField" + ".h5", meshHandle)
         pressureHnd = pressureField.save(h5Path + "pressureField" + ".h5", meshHandle)
         temperatureHnd = temperatureField.save(
@@ -146,7 +149,14 @@ class CheckPointManager:
             meshname="mesh",
             modeltime=time,
         )
-
+        temperatureDotField.xdmf(
+            filename=xdmfPath + "temperatureDotField.xdmf",
+            fieldSavedData=temperatureDotHnd,
+            varname="temperatureDotField",
+            meshSavedData=meshHandle,
+            meshname="mesh",
+            modeltime=time,
+        )
         pressureField.xdmf(
             filename=xdmfPath + "pressureField.xdmf",
             fieldSavedData=pressureHnd,

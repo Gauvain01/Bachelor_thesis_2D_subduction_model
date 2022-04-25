@@ -32,7 +32,9 @@ class ModelParameterMapBuilder:
         self._referenceDensity: ModelParameter = None
         self._gravitationalAcceleration: ModelParameter = None
         self._referenceTemperature: ModelParameter = None
+        self._defaultStrainRate: ModelParameter = None
         self._thermalExpansivity: ModelParameter = None
+        self._minimalStrainRate: ModelParameter = None
         self._thermalDiffusivity: ModelParameter = None
         self._referenceViscosity: ModelParameter = None
         self._upperMantleViscosity: ModelParameter = None
@@ -92,6 +94,17 @@ class ModelParameterMapBuilder:
         nonDimensionalOverrideValue=None,
     ) -> ModelParameterMapBuilder:
         self._modelHeight = self._modelParameterbuilder.buildModelParameter(
+            value, scalingCoefficientTypeEnum, nonDimensionalOverrideValue
+        )
+        return self
+
+    def setMinimalStrainRate(
+        self,
+        value: Union[_Unit, _Quantity],
+        scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
+        nonDimensionalOverrideValue=None,
+    ) -> ModelParameterMapBuilder:
+        self._minimalStrainRate = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum, nonDimensionalOverrideValue
         )
         return self
@@ -263,6 +276,17 @@ class ModelParameterMapBuilder:
         )
         return self
 
+    def setDefaultStrainRate(
+        self,
+        value: Union[_Unit, _Quantity],
+        scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
+        nonDimensionalOverrideValue=None,
+    ) -> ModelParameterMapBuilder:
+        self._defaultStrainRate = self._modelParameterbuilder.buildModelParameter(
+            value, scalingCoefficientTypeEnum, nonDimensionalOverrideValue
+        )
+        return self
+
     def setCoreShearModulus(
         self,
         value: Union[_Unit, _Quantity],
@@ -274,13 +298,13 @@ class ModelParameterMapBuilder:
         )
         return self
 
-    def setTimeScaleStress(
+    def setDeltaTime(
         self,
         value: Union[_Unit, _Quantity],
         scalingCoefficientTypeEnum: Union[None, ScalingCoefficientType] = None,
         nonDimensionalOverrideValue=None,
     ) -> ModelParameterMapBuilder:
-        self._timeScaleStress = self._modelParameterbuilder.buildModelParameter(
+        self._deltaTime = self._modelParameterbuilder.buildModelParameter(
             value, scalingCoefficientTypeEnum, nonDimensionalOverrideValue
         )
         return self
@@ -322,9 +346,10 @@ class ModelParameterMapBuilder:
                 yieldStressOfSpTopLayer=self._yieldStressOfSpTopLayer,
                 gasConstant=self._gasConstant,
                 lowerMantleHeigth=self._lowerMantleHeigth,
-                timeScaleStress=self._timeScaleStress,
+                deltaTime=self._deltaTime,
                 coreShearModulus=self._coreShearModulus,
                 temperatureContrast=self._temperatureContrast,
+                defaultStrainRate=self._defaultStrainRate,
             )
             self._reset()
             return modelParameterDao

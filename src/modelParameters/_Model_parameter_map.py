@@ -63,6 +63,12 @@ class ModelParameterMap:
     coreShearModulus: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
     )
-    timeScaleStress: ModelParameter = attr.ib(
+    deltaTime: ModelParameter = attr.ib(
+        validator=attr.validators.instance_of(ModelParameter)
+    )
+    minimalStrainRate: ModelParameter = attr.ib(
+        validator=attr.validators.instance_of(ModelParameter)
+    )
+    defaultStrainRate: ModelParameter = attr.ib(
         validator=attr.validators.instance_of(ModelParameter)
     )

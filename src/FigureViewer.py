@@ -33,3 +33,4 @@ class FigureViewer:
         figManager.saveTemperatureField(mesh, model.temperatureField)
         figManager.saveStress2ndInvariant(swarm, model.stress2ndInvariant)
         figManager.saveVelocity(model.velocityField, mesh, swarm, model.viscosityFn)
+        figManager.saveTemperatureDotField(mesh, model.temperatureDotField)

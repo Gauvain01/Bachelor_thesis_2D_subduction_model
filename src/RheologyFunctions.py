@@ -17,26 +17,45 @@ class RheologyFunctions:
         self.strainRateSecondInvariant = None
         self.rayLeighNumber = None
 
+        self.strainRateSolutionExists = fn.misc.constant(False)
+
     def getSymmetricStrainRateTensor(self, velocityField):
         symStrainRate = fn.tensor.symmetric(velocityField.fn_gradient)
         return symStrainRate
 
     def getStrainRateSecondInvariant(self, velocityField):
+
         strainRateSecondInvariant = fn.tensor.second_invariant(
             self.getSymmetricStrainRateTensor(velocityField)
         )
-        return strainRateSecondInvariant
+        minimalStrainRate = (
+            self.modelParameterMap.minimalStrainRate.nonDimensionalValue.magnitude
+        )
+        defaultStrainRate = (
+            self.modelParameterMap.defaultStrainRate.nonDimensionalValue.magnitude
+        )
+
+        condition1 = [
+            (self.strainRateSolutionExists, strainRateSecondInvariant),
+            (True, minimalStrainRate),
+        ]
+
+        existingStrainRate = fn.branching.conditional(condition1)
+
+        condition2 = [
+            (existingStrainRate <= defaultStrainRate),
+            (True, existingStrainRate),
+        ]
+        strainRate2ndInvariant = fn.branching.conditional(condition2)
+        return strainRate2ndInvariant
 
     def getEffectiveViscosityOfUpperLayerVonMises(self, velocityField):
 
         sigmaY = (
             self.modelParameterMap.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         )
-        strainRateSecondInvariant = fn.tensor.second_invariant(
-            fn.tensor.symmetric(velocityField.fn_gradient)
-        )
-
-        effectiveViscosity = 0.5 * sigmaY / (strainRateSecondInvariant + 1e-15)
+        strainRateSecondInvariant = self.getStrainRateSecondInvariant(velocityField)
+        effectiveViscosity = 0.5 * sigmaY / (strainRateSecondInvariant)
         return effectiveViscosity
 
     def getEffectiveViscosityOfViscoElasticCore(self):
@@ -48,7 +67,7 @@ class RheologyFunctions:
         )
 
         alpha = coreVis / coreShearModulus
-        dt_e = self.modelParameterMap.timeScaleStress.nonDimensionalValue.magnitude
+        dt_e = self.modelParameterMap.deltaTime.nonDimensionalValue.magnitude
         effVis = (coreVis * dt_e) / (alpha + dt_e)
         return effVis
 

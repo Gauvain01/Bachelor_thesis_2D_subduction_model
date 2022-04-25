@@ -12,3 +12,4 @@ class ScalingCoefficientType(IntEnum):
     MASS = 8
     TIME = 9
     MANUAL = 10
+    UNDERWORLD = 11

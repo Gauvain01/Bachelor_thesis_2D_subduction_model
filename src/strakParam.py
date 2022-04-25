@@ -1,12 +1,8 @@
 from underworld.scaling import units as u
 
-from modelParameters import (
-    ModelParameterBuilder,
-    ModelParameterMap,
-    ModelParameterMapBuilder,
-    ScalingCoefficient,
-    ScalingCoefficientType,
-)
+from modelParameters import (ModelParameterBuilder, ModelParameterMap,
+                             ModelParameterMapBuilder, ScalingCoefficient,
+                             ScalingCoefficientType)
 
 
 class Strak2021ScalingCoefficient(ScalingCoefficient):
@@ -97,10 +93,10 @@ def get_Strak_2021_model_parameter_map(blueprint=False) -> ModelParameterMap:
         .setSpTopLayerViscosity(
             3.5e23 * u.pascal * u.second, ScalingCoefficientType.VISCOSITY
         )
-        .setTimeScaleStress(
-            (6e4 * u.years).to_base_units(), ScalingCoefficientType.TIME
-        )
+        .setDeltaTime((4e4 * u.years).to_base_units(), ScalingCoefficientType.TIME)
         .setTemperatureContrast(1573.15 * u.kelvin, ScalingCoefficientType.TEMPERATURE)
+        .setMinimalStrainRate(1e-20 / u.second, ScalingCoefficientType.UNDERWORLD)
+        .setDefaultStrainRate(1e-15/u.second, ScalingCoefficientType.UNDERWORLD)
     )
     if blueprint:
         return StrakParameterDao.createBluePrint()

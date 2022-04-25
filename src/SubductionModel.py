@@ -116,7 +116,7 @@ class SubductionModel:
         # self.mesh = manager.getMesh(self.preMesh)
         self.swarm = swarm.Swarm(mesh=self.mesh)
         manager.getSwarm(self.swarm, step)
-
+        self.temperatureDotField = manager.getTemperatureDotField(step, self.mesh)
         self.materialVariable = manager.getMaterialVariable(step, self.swarm)
         self.previousStress = manager.getPreviousStress(step, self.swarm)
         self.pressureField = manager.getPressureField(step, self.mesh)
@@ -155,6 +155,9 @@ class SubductionModel:
             swarm=self.swarm, particlesPerCell=20
         )
         self.swarm.populate_using_layout(self.swarmLayout)
+        self.populationControl = swarm.PopulationControl(
+            self.swarm, particlesPerCell=20
+        )
 
     def _setOutputPath(self):
         if mpi.rank == 0:
@@ -197,6 +200,8 @@ class SubductionModel:
         self.velocityField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=2)
         self.pressureField = mesh.MeshVariable(mesh=self.mesh.subMesh, nodeDofCount=1)
         self.temperatureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.temperatureDotField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.temperatureDotField.data[:] = 0.0
         self.velocityField.data[:] = 0.0
         self.pressureField.data[:] = 0.0
 
@@ -263,7 +268,7 @@ class SubductionModel:
             self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude,  # self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
         )
 
-        maxDepth = 50e3 * u.meter
+        maxDepth = 200e3 * u.meter
         maxDepth = self.parameters.scalingCoefficient.scalingForLength(
             maxDepth
         ).magnitude
@@ -332,14 +337,15 @@ class SubductionModel:
     def _setAdvectionDiffusionSystem(self):
         self.advectionDiffusion = systems.AdvectionDiffusion(
             phiField=self.temperatureField,
+            phiDotField=self.temperatureDotField,
             velocityField=self.velocityField,
             fn_sourceTerm=0.0,
             fn_diffusivity=self.parameters.thermalDiffusivity.nonDimensionalValue.magnitude,
             conditions=[
                 self.temperatureBoundaryCondition,
             ],
-            allow_non_q1=True,
-            method="SLCN",
+            # allow_non_q1=True,
+            # method="SLCN",
         )
 
     def _setSwarmAdvectionSystem(self):
@@ -356,12 +362,16 @@ class SubductionModel:
     #     self.solver = systems.Solver(self.stokes)
 
     def _update(self, time, step):
-        dt = self.advectionDiffusion.get_max_dt()
-        if dt > self.parameters.timeScaleStress.nonDimensionalValue.magnitude:
-            dt = self.parameters.timeScaleStress.nonDimensionalValue.magnitude
+        dt = self.parameters.deltaTime.nonDimensionalValue.magnitude
+
+        # if dt > self.parameters.timeScaleStress.nonDimensionalValue.magnitude:
+        #     dt = self.parameters.timeScaleStress.nonDimensionalValue.magnitude
 
         self.advectionDiffusion.integrate(dt)
-        self.swarmAdvector.integrate(dt)
+        self.swarmAdvector.integrate(dt, update_owners=True)
+        self.swarm.update_particle_owners()
+        self.populationControl.repopulate()
+
         dt = dt * self.parameters.scalingCoefficient.timeCoefficient.magnitude
         return time + dt, step + 1
 
@@ -383,6 +393,7 @@ class SubductionModel:
             step=step,
             swarm=self.swarm,
             mesh=self.mesh,
+            temperatureDotField=self.temperatureDotField,
             materialVariable=self.materialVariable,
             previousStress=self.previousStress,
             velocityField=self.velocityField,
