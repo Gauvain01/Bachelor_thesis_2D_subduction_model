@@ -1,19 +1,26 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import Union
 
 from underworld import function as fn
-from underworld import mesh, swarm, systems
+from underworld import mesh, mpi, swarm, systems
 from underworld.function import Function
 
+from CheckPointManager import CheckPointManager
 from meshProjector import meshProjector
 from modelParameters import ModelParameterMap
 
 
 class BaseModel:
     def __init__(
-        self, modelParameters: ModelParameterMap, totalSteps: int, checkPointSteps: int
+        self,
+        modelParameters: ModelParameterMap,
+        totalSteps: int,
+        checkPointSteps: int,
+        name: int,
     ) -> None:
+        self.name = name
         self.totalSteps = totalSteps
         self.checkPointSteps = checkPointSteps
         self.parameters = modelParameters
@@ -32,7 +39,9 @@ class BaseModel:
         self._addMeshVariable(
             "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
         )
-        self.currentStep = 0
+        self._addSwarmVariable("_materialVariable", dataType="int", count=1)
+        self.modelStep = 0
+        self.modelTime = 0
         self._solutionExists = fn.misc.constant(False)
         self._hasTemperatureDotField = False
         self._hasTemperatureField = False
@@ -45,11 +54,13 @@ class BaseModel:
         else:
             field = mesh.MeshVariable(self.mesh, nodeDofCount, dataType)
         setattr(self, name.value, field)
+        self._meshVarForSaving.append(name)
 
     def _addSwarmVariable(self, name: str, dataType: str, count: int):
         self.swarm: swarm.Swarm
         field = self.swarm.add_variable(dataType, count)
         setattr(self, name, field)
+        self._swarmVarForSaving.append(name)
 
     @abstractmethod
     def _init_temperature_variables(self):
@@ -61,6 +72,16 @@ class BaseModel:
 
     @abstractmethod
     def _setSwarm(self):
+        pass
+
+    @property
+    @abstractmethod
+    def outputPath(self):
+        pass
+
+    @property
+    @abstractmethod
+    def materialVariable(self):
         pass
 
     @property
@@ -92,6 +113,21 @@ class BaseModel:
     @abstractmethod
     def temperatureBC(self):
         pass
+
+    @property
+    def _swarmVarForSaving(self):
+        obj = []
+        return obj
+
+    @property
+    def _meshVarForSaving(self):
+        obj = []
+        return obj
+
+    @property
+    def checkPointManager(self) -> CheckPointManager:
+        obj = CheckPointManager(self.name, self.outputPath)
+        return obj
 
     @property
     def temperature(self):
@@ -166,6 +202,32 @@ class BaseModel:
         return self._solver
 
     @property
+    def meshHandle(self):
+        with mpi.call_pattern("collective"):
+            try:
+                handle = self._meshHandle
+            except AttributeError:
+                self._meshHandle = self.mesh.save(self.outputPath + "mesh.00000.h5")
+                handle = self._meshHandle
+            except Exception as e:
+                raise ValueError(f"problem with meshHandle {e}")
+
+            return handle
+
+    @property
+    def swarmHandle(self):
+        with mpi.call_pattern("collective"):
+            try:
+                handle = self._swarmHandle
+            except AttributeError:
+                self._swarmHandle = self.swarm.save(self.outputPath + "mesh.00000.h5")
+                handle = self._swarmHandle
+            except Exception as e:
+                raise ValueError(f"problem with swarmHandle {e}")
+
+            return handle
+
+    @property
     def advectionDiffusionSystem(self):
         obj = systems.AdvectionDiffusion(
             phiField=self.temperature,
@@ -189,10 +251,33 @@ class BaseModel:
     def _update(self):
         pass
 
-    @abstractmethod
     def _checkPoint(self):
-        pass
+        for name in self._meshVarForSaving:
+            obj = getattr(self, name)
+            self.checkPointManager.saveField(
+                name=name,
+                field=obj,
+                handle=self.meshHandle,
+                step=self.modelStep,
+                time=self.modelTime,
+            )
+        for name in self._swarmVarForSaving:
+            obj = getattr(self, name)
+            self.checkPointManager.saveField(
+                name=name,
+                field=obj,
+                handle=self.swarmHandle,
+                step=self.modelStep,
+                time=self.modelTime,
+            )
 
     @abstractmethod
-    def run(self):
+    def _run(self):
         pass
+
+    def _cleanup(self):
+        pass
+
+    def run(self):
+        self._run()
+        self._cleanup()

@@ -21,29 +21,29 @@ from RheologyFunctions import RheologyFunctions
 
 
 class SubductionModel(BaseModel):
-    
-    def __init__(self,
-                 modelParameters: ModelParameterMap,
-                 totalSteps: int,
-                 checkPointSteps: int,
-                 resolution:Tuple,
-                 subductionZonePolygons:SubductionZonePolygons) -> None:
+    def __init__(
+        self,
+        modelParameters: ModelParameterMap,
+        totalSteps: int,
+        checkPointSteps: int,
+        resolution: Tuple,
+        subductionZonePolygons: SubductionZonePolygons,
+    ) -> None:
         super().__init__(modelParameters, totalSteps, checkPointSteps)
         self._resolution = resolution
-        self._polygons = SubductionZonePolygons
-        
-    
+        self._polygons = subductionZonePolygons
+
     def _setMesh(self):
         self.mesh = mesh.FeMesh_Cartesian(
-                elementType="Q1/dQ0",
-                elementRes=(self.resolution),
-                minCoord=(0.0, 0.0),
-                maxCoord=(
-                    self.parameters.modelLength.nonDimensionalValue.magnitude,
-                    self.parameters.modelHeight.nonDimensionalValue.magnitude,
-                ),
-            )
-    
+            elementType="Q1/dQ0",
+            elementRes=(self.resolution),
+            minCoord=(0.0, 0.0),
+            maxCoord=(
+                self.parameters.modelLength.nonDimensionalValue.magnitude,
+                self.parameters.modelHeight.nonDimensionalValue.magnitude,
+            ),
+        )
+
     def _setSwarm(self):
         self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
         self.swarm.allow_parallel_nn = True
@@ -58,28 +58,12 @@ class SubductionModel(BaseModel):
             splitThreshold=0.15,
             maxSplits=10,
         )
-    
-    @property
-    def slabUpperPoly(self):
-        upper = self._polygons.getUpperSlabShapeArray()
-        return fn.shape.Polygon(upper)
-    
-    @property
-    def slabCorePoly(self):
-        core = self._polygons.getMiddleSlabShapeArray()
-        return fn.shape.Polygon(core)
-    
-    @property
-    def slabLowerPoly(self):
-        lower = self._polygons.getLowerSlabShapeArray()
-        return fn.shape.Polygon(lower)
-    
-    
+
     def _init_temperature_variables(self):
         self._temperatureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
         self._temperatureDotField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
-        self._temperatureDotField[...] = 0.
-        
+        self._temperatureDotField[...] = 0.0
+
         proxyTemp = self.swarm.add_variable(dataType="double", count=1)
         proxyTemp.data[:] = 1.0
 
@@ -96,52 +80,66 @@ class SubductionModel(BaseModel):
         TmapSolver = utils.MeshVariable_Projection(self._temperatureField, proxyTemp)
         TmapSolver.solve()
         print("solved TemperatureField")
-    
+
+    @property
+    def slabUpperPoly(self):
+        upper = self._polygons.getUpperSlabShapeArray()
+        return fn.shape.Polygon(upper)
+
+    @property
+    def slabCorePoly(self):
+        core = self._polygons.getMiddleSlabShapeArray()
+        return fn.shape.Polygon(core)
+
+    @property
+    def slabLowerPoly(self):
+        lower = self._polygons.getLowerSlabShapeArray()
+        return fn.shape.Polygon(lower)
+
     @property
     def strainRate2ndInvariant(self) -> fn.Function:
         strainRateSecondInvariant = fn.tensor.second_invariant(
             fn.tensor.symmetric(self.velocityField.fn_gradient)
         )
-        minimalStrainRate = fn.misc.constant(
+        minimalStrainRate = (
             self.parameters.minimalStrainRate.nonDimensionalValue.magnitude
         )
-        defaultStrainRate = fn.misc.constant(
+
+        defaultStrainRate = (
             self.parameters.defaultStrainRate.nonDimensionalValue.magnitude
         )
 
-        condition1 = [
+        conditionToCheckForExistingSolve = [
             (self._solutionExists, strainRateSecondInvariant),
             (True, defaultStrainRate),
         ]
 
-        existingStrainRate = fn.branching.conditional(condition1)
+        existingStrainRate = fn.branching.conditional(conditionToCheckForExistingSolve)
 
-        condition2 = [
+        conditionForMinimalStrain = [
             (existingStrainRate <= minimalStrainRate, minimalStrainRate),
             (True, existingStrainRate),
         ]
-        strainRate2ndInvariant = fn.branching.conditional(condition2)
+        strainRate2ndInvariant = fn.branching.conditional(conditionForMinimalStrain)
         return strainRate2ndInvariant
-    
+
     @property
     def vonMisesUpperLayerSP(self):
-        sigmaY = (
-            self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
-        )
+        sigmaY = self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         strainRateSecondInvariant = self.strainRate2ndInvariant
-        effectiveViscosity = 0.5 * sigmaY / (strainRateSecondInvariant)
+        effectiveViscosity = 0.5 * sigmaY / strainRateSecondInvariant
         return effectiveViscosity
-    
+
     @property
     def stressFn(self) -> Function:
-        return 2. * self.viscosityField * self.strainRateField
-    
+        return 2.0 * self.viscosityField * self.strainRateField
+
     @property
     def depthFn(self) -> Function:
         coordinate = fn.input()
         depthFn = self.mesh.maxCoord[1] - coordinate[1]
         return depthFn
-    
+
     @property
     def viscosityFn(self) -> Function:
 
@@ -157,7 +155,10 @@ class SubductionModel(BaseModel):
         alteredViscosity = 50.0
 
         conditionTopLayer = fn.branching.conditional(
-            [(self.depthFn > maxDepth, alteredViscosity), (self.depthFn < maxDepth, visTopLayer)]
+            [
+                (self.depthFn > maxDepth, alteredViscosity),
+                (self.depthFn < maxDepth, visTopLayer),
+            ]
         )
 
         visCoreLayer = (
@@ -176,11 +177,97 @@ class SubductionModel(BaseModel):
             self.coreSlabIndex: visCoreLayer,
             self.upperSlabIndex: conditionTopLayer,
         }
-        return fn.branching.map(
-            fn_key=self.materialVariable, mapping=viscosityMap
+        return fn.branching.map(fn_key=self.materialVariable, mapping=viscosityMap)
+
+    @property
+    def rayleighNumber(self):
+
+        ls = self.parameters.modelHeight.dimensionalValue.magnitude
+        rhoRef = self.parameters.referenceDensity.dimensionalValue.magnitude
+
+        g = self.parameters.gravitationalAcceleration.dimensionalValue.magnitude
+        alpha = self.parameters.thermalExpansivity.dimensionalValue.magnitude
+
+        deltaT = self.parameters.temperatureContrast.dimensionalValue.magnitude
+
+        k = self.parameters.thermalDiffusivity.dimensionalValue.magnitude
+
+        eta = self.parameters.referenceViscosity.dimensionalValue.magnitude
+
+        rayLeighNumber = ((ls**3) * rhoRef * g * alpha * deltaT) / (k * eta)
+        return rayLeighNumber
+
+    @property
+    def buoyancyFn(self) -> Function:
+        ez = (0.0, -1.0)
+        Ra = self.rayleighNumber
+        thermalDensityFn = Ra * (1.0 - self.temperature)
+        buoyancyMapFn = thermalDensityFn * ez
+        return buoyancyMapFn
+
+    @property
+    def velocityBC(self):
+        verticalWalls = (
+            self.mesh.specialSets["Left_VertexSet"]
+            + self.mesh.specialSets["Right_VertexSet"]
         )
-    
-        
+        lateralWalls = (
+            self.mesh.specialSets["Top_VertexSet"]
+            + self.mesh.specialSets["Bottom_VertexSet"]
+        )
+
+        VelocityBoundaryCondition = conditions.DirichletCondition(
+            variable=self.velocityField,
+            indexSetsPerDof=(verticalWalls, lateralWalls),
+        )
+        return VelocityBoundaryCondition
+
+    @property
+    def temperatureBC(self):
+        verticalWalls = (
+            self.mesh.specialSets["Left_VertexSet"]
+            + self.mesh.specialSets["Right_VertexSet"]
+        )
+        topWall = self.mesh.specialSets["Top_VertexSet"]
+        temperatureBoundaryCondition = conditions.DirichletCondition(
+            variable=self.temperature,
+            indexSetsPerDof=(topWall + verticalWalls),
+        )
+        return temperatureBoundaryCondition
+
+    @property
+    def upperMantleIndex(self):
+        return 0
+
+    @property
+    def upperSlabIndex(self):
+        return 1
+
+    @property
+    def coreSlabIndex(self):
+        return 2
+
+    @property
+    def lowerSlabIndex(self):
+        return 3
+
+    @property
+    def materialVariable(self):
+        self._materialVariable.data[:] = self.upperMantleIndex
+
+        for index in range(len(self.swarm.particleCoordinates.data)):
+            coord = self.swarm.particleCoordinates.data[index][:]
+            # if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude:
+            #     self._materialVariable.data[index] = self.lowerMantleIndex
+            if self.slabUpperPoly.evaluate(tuple(coord)):
+                self._materialVariable.data[index] = self.upperSlabIndex
+            if self.slabCorePoly.evaluate(tuple(coord)):
+                self._materialVariable.data[index] = self.coreSlabIndex
+            if self.slabLowerPoly.evaluate(tuple(coord)):
+                self._materialVariable.data[index] = self.lowerSlabIndex
+        return self._materialVariable
+
+
 class OldSubductionModel:
     def __init__(
         self,
@@ -305,11 +392,10 @@ class OldSubductionModel:
 
     def _setMesh(self):
         if self.mesh is None:
-            
+            pass
 
     def _initSwarm(self):
-
-        
+        pass
 
     def _setOutputPath(self):
         if mpi.rank == 0:

@@ -1,8 +1,9 @@
 import json
 import os
+from typing import Union
 
 from underworld import mesh as Mesh
-from underworld import mpi
+from underworld import mpi, swarm
 from underworld.swarm import Swarm
 
 
@@ -15,6 +16,29 @@ class CheckPointManager:
         stepString = str(step).zfill(5)
         stepOutputPath = self.outputPath + "/" + stepString
         return stepOutputPath
+
+    def saveField(
+        self,
+        name: str,
+        field: Union[Mesh.MeshVariable, swarm.SwarmVariable],
+        Handle,
+        step: int,
+        time,
+    ):
+        with mpi.call_pattern("collective"):
+            h5Path = self._getH5Path(step)
+            xdmfPath = self._getXdmfPath(step)
+
+            fieldHnd = field.save(h5Path + f"{name}.h5")
+
+            field.xdmf(
+                filename=xdmfPath + f"{name}.xdmf",
+                fieldSavedData=fieldHnd,
+                varname=name,
+                meshSavedData=Handle,
+                meshname="mesh",
+                modeltime=time,
+            )
 
     def _getH5Path(self, step: int):
         return self._getStepOutputPath(step) + "/h5/"
@@ -77,8 +101,8 @@ class CheckPointManager:
         step,
         swarm: Swarm,
         mesh,
-        materialVariable,
-        previousStress,
+        materialVariable: Mesh.MeshVariable,
+        previousStress: swarm.SwarmVariable,
         velocityField,
         pressureField,
         temperatureField,

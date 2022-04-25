@@ -28,11 +28,11 @@ class RheologyFunctions:
         strainRateSecondInvariant = fn.tensor.second_invariant(
             self.getSymmetricStrainRateTensor(velocityField)
         )
-        minimalStrainRate = fn.misc.constant(
-            self.modelParameterMap.minimalStrainRate.nonDimensionalValue.magnitude
+        minimalStrainRate = (
+            fn.misc.constant(self.modelParameterMap.minimalStrainRate.nonDimensionalValue.magnitude
         )
-        defaultStrainRate = fn.misc.constant(
-            self.modelParameterMap.defaultStrainRate.nonDimensionalValue.magnitude
+        defaultStrainRate = (
+           fn.misc.constant(self.modelParameterMap.defaultStrainRate.nonDimensionalValue.magnitude)
         )
 
         condition1 = [
