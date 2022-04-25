@@ -1,7 +1,7 @@
 from underworld import visualisation
 
 from FigureManager import FigureManager
-from SubductionModel import SubductionModel
+from OldSubductionModel import OldSubductionModel
 
 
 class FigureViewer:
@@ -15,7 +15,7 @@ class FigureViewer:
         viewer.step = step
         viewer.showall()
 
-    def fromCheckPoint(self, step: int, model: SubductionModel):
+    def fromCheckPoint(self, step: int, model: OldSubductionModel):
         model.fromCheckpoint = True
         model._fromCheckpointStep = step
         model._initFromCheckPoint(step)

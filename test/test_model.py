@@ -3,7 +3,7 @@ from test.test_resources.Strak_2021_model_params_resources import (
 )
 
 from PlatePolygons import SubductionZonePolygons
-from SubductionModel import SubductionModel
+from OldSubductionModel import OldSubductionModel
 from underworld.scaling import units as u
 
 
@@ -18,7 +18,7 @@ def test_model():
         30e3 * u.meter,
         100e3 * u.meter,
     )
-    model = SubductionModel(
+    model = OldSubductionModel(
         name="test",
         modelParameterMap=get_Strak_2021_model_parameter_map(),
         stepAmountCheckpoint=2,
@@ -27,4 +27,4 @@ def test_model():
     )
     model.run()
     assert isinstance(polygons, SubductionZonePolygons)
-    assert isinstance(model, SubductionModel)
+    assert isinstance(model, OldSubductionModel)

@@ -11,6 +11,7 @@ from underworld import mesh, mpi, swarm, systems, utils
 from underworld.function._function import Function
 from underworld.scaling import units as u
 
+from BaseModel import BaseModel
 from CheckPointManager import CheckPointManager
 from FigureManager import FigureManager
 from modelParameters import ScalingCoefficientType
@@ -19,7 +20,168 @@ from PlatePolygons import SubductionZonePolygons
 from RheologyFunctions import RheologyFunctions
 
 
-class SubductionModel:
+class SubductionModel(BaseModel):
+    
+    def __init__(self,
+                 modelParameters: ModelParameterMap,
+                 totalSteps: int,
+                 checkPointSteps: int,
+                 resolution:Tuple,
+                 subductionZonePolygons:SubductionZonePolygons) -> None:
+        super().__init__(modelParameters, totalSteps, checkPointSteps)
+        self._resolution = resolution
+        self._polygons = SubductionZonePolygons
+        
+    
+    def _setMesh(self):
+        self.mesh = mesh.FeMesh_Cartesian(
+                elementType="Q1/dQ0",
+                elementRes=(self.resolution),
+                minCoord=(0.0, 0.0),
+                maxCoord=(
+                    self.parameters.modelLength.nonDimensionalValue.magnitude,
+                    self.parameters.modelHeight.nonDimensionalValue.magnitude,
+                ),
+            )
+    
+    def _setSwarm(self):
+        self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
+        self.swarm.allow_parallel_nn = True
+        self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
+            swarm=self.swarm, particlesPerCell=20
+        )
+        self.swarm.populate_using_layout(self.swarmLayout)
+        self.populationControl = swarm.PopulationControl(
+            self.swarm,
+            particlesPerCell=20,
+            aggressive=True,
+            splitThreshold=0.15,
+            maxSplits=10,
+        )
+    
+    @property
+    def slabUpperPoly(self):
+        upper = self._polygons.getUpperSlabShapeArray()
+        return fn.shape.Polygon(upper)
+    
+    @property
+    def slabCorePoly(self):
+        core = self._polygons.getMiddleSlabShapeArray()
+        return fn.shape.Polygon(core)
+    
+    @property
+    def slabLowerPoly(self):
+        lower = self._polygons.getLowerSlabShapeArray()
+        return fn.shape.Polygon(lower)
+    
+    
+    def _init_temperature_variables(self):
+        self._temperatureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self._temperatureDotField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self._temperatureDotField[...] = 0.
+        
+        proxyTemp = self.swarm.add_variable(dataType="double", count=1)
+        proxyTemp.data[:] = 1.0
+
+        for index in range(len(self.swarm.particleCoordinates.data)):
+            coord = self.swarm.particleCoordinates.data[index][:]
+            # if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude:
+            #     self.materialVariable.data[index] = self.lowerMantleIndex
+            if self.slabUpperPoly.evaluate(tuple(coord)):
+                proxyTemp.data[index] = 0.0
+            if self.slabCorePoly.evaluate(tuple(coord)):
+                proxyTemp.data[index] = 0.0
+            if self.slabLowerPoly.evaluate(tuple(coord)):
+                proxyTemp.data[index] = 0.0
+        TmapSolver = utils.MeshVariable_Projection(self._temperatureField, proxyTemp)
+        TmapSolver.solve()
+        print("solved TemperatureField")
+    
+    @property
+    def strainRate2ndInvariant(self) -> fn.Function:
+        strainRateSecondInvariant = fn.tensor.second_invariant(
+            fn.tensor.symmetric(self.velocityField.fn_gradient)
+        )
+        minimalStrainRate = fn.misc.constant(
+            self.parameters.minimalStrainRate.nonDimensionalValue.magnitude
+        )
+        defaultStrainRate = fn.misc.constant(
+            self.parameters.defaultStrainRate.nonDimensionalValue.magnitude
+        )
+
+        condition1 = [
+            (self._solutionExists, strainRateSecondInvariant),
+            (True, defaultStrainRate),
+        ]
+
+        existingStrainRate = fn.branching.conditional(condition1)
+
+        condition2 = [
+            (existingStrainRate <= minimalStrainRate, minimalStrainRate),
+            (True, existingStrainRate),
+        ]
+        strainRate2ndInvariant = fn.branching.conditional(condition2)
+        return strainRate2ndInvariant
+    
+    @property
+    def vonMisesUpperLayerSP(self):
+        sigmaY = (
+            self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+        )
+        strainRateSecondInvariant = self.strainRate2ndInvariant
+        effectiveViscosity = 0.5 * sigmaY / (strainRateSecondInvariant)
+        return effectiveViscosity
+    
+    @property
+    def stressFn(self) -> Function:
+        return 2. * self.viscosityField * self.strainRateField
+    
+    @property
+    def depthFn(self) -> Function:
+        coordinate = fn.input()
+        depthFn = self.mesh.maxCoord[1] - coordinate[1]
+        return depthFn
+    
+    @property
+    def viscosityFn(self) -> Function:
+
+        visTopLayer = fn.misc.min(
+            self.vonMisesUpperLayerSP,
+            self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude,  # self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
+        )
+
+        maxDepth = 200e3 * u.meter
+        maxDepth = self.parameters.scalingCoefficient.scalingForLength(
+            maxDepth
+        ).magnitude
+        alteredViscosity = 50.0
+
+        conditionTopLayer = fn.branching.conditional(
+            [(self.depthFn > maxDepth, alteredViscosity), (self.depthFn < maxDepth, visTopLayer)]
+        )
+
+        visCoreLayer = (
+            self.parameters.spCoreLayerViscosity.nonDimensionalValue.magnitude
+            # self.parameters.spCoreLayerViscosity.nonDimensionalValue.magnitude
+        )
+        visBottomLayer = (
+            self.parameters.spBottomLayerViscosity.nonDimensionalValue.magnitude
+        )
+
+        # print(f"{var = }")
+        viscosityMap = {
+            self.upperMantleIndex: self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude,
+            # self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude,
+            self.lowerSlabIndex: round(visBottomLayer, 1),
+            self.coreSlabIndex: visCoreLayer,
+            self.upperSlabIndex: conditionTopLayer,
+        }
+        return fn.branching.map(
+            fn_key=self.materialVariable, mapping=viscosityMap
+        )
+    
+        
+class OldSubductionModel:
     def __init__(
         self,
         *,
@@ -67,6 +229,8 @@ class SubductionModel:
         self._initSwarm()
         self.materialVariable = self.swarm.add_variable(dataType="int", count=1)
         self.previousStress = self.swarm.add_variable(dataType="double", count=3)
+        self.viscosityField = self.swarm.add_variable(dataType="doubtle", count=1)
+
         self.previousStress.data[:] = [0.0, 0.0, 0.0]
         mpi.barrier()
         self._setupFields()
@@ -107,6 +271,9 @@ class SubductionModel:
         self._setStokesSolver()
         mpi.barrier
 
+    def _getViscosityField(self):
+        self.viscosityField.data[...] = self.viscosityFn.evaluate(self.swarm)
+
     def _initFromCheckPoint(self, step):
         self._setMesh()
         mpi.barrier()
@@ -138,31 +305,11 @@ class SubductionModel:
 
     def _setMesh(self):
         if self.mesh is None:
-            self.mesh = mesh.FeMesh_Cartesian(
-                elementType="Q1/dQ0",
-                elementRes=(self.resolution),
-                minCoord=(0.0, 0.0),
-                maxCoord=(
-                    self.parameters.modelLength.nonDimensionalValue.magnitude,
-                    self.parameters.modelHeight.nonDimensionalValue.magnitude,
-                ),
-            )
+            
 
     def _initSwarm(self):
 
-        self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
-        self.swarm.allow_parallel_nn = True
-        self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
-            swarm=self.swarm, particlesPerCell=20
-        )
-        self.swarm.populate_using_layout(self.swarmLayout)
-        self.populationControl = swarm.PopulationControl(
-            self.swarm,
-            particlesPerCell=20,
-            aggressive=True,
-            splitThreshold=0.15,
-            maxSplits=10,
-        )
+        
 
     def _setOutputPath(self):
         if mpi.rank == 0:
@@ -206,6 +353,8 @@ class SubductionModel:
         self.pressureField = mesh.MeshVariable(mesh=self.mesh.subMesh, nodeDofCount=1)
         self.temperatureField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
         self.temperatureDotField = mesh.MeshVariable(mesh=self.mesh, nodeDofCount=1)
+        self.strainRateField = mesh.MeshVariable(mesh=self.mesh.subMesh, nodeDofCount=1)
+        self.strainRateField.data[...] = 0.0
         self.temperatureDotField.data[:] = 0.0
         self.velocityField.data[:] = 0.0
         self.pressureField.data[:] = 0.0

@@ -5,7 +5,7 @@ from underworld.scaling import units as u
 from FigureViewer import FigureViewer
 from PlatePolygons import SubductionZonePolygons
 from strakParam import get_Strak_2021_model_parameter_map
-from SubductionModel import SubductionModel
+from OldSubductionModel import OldSubductionModel
 
 if __name__ == "__main__":
     polygons = SubductionZonePolygons(
@@ -18,7 +18,7 @@ if __name__ == "__main__":
         30e3 * u.meter,
         100e3 * u.meter,
     )
-    model = SubductionModel(
+    model = OldSubductionModel(
         name="test2",
         modelParameterMap=get_Strak_2021_model_parameter_map(),
         resolution=(200, 100),
