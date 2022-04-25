@@ -350,6 +350,7 @@ class ModelParameterMapBuilder:
                 coreShearModulus=self._coreShearModulus,
                 temperatureContrast=self._temperatureContrast,
                 defaultStrainRate=self._defaultStrainRate,
+                minimalStrainRate=self._minimalStrainRate,
             )
             self._reset()
             return modelParameterDao

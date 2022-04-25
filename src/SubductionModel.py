@@ -150,13 +150,18 @@ class SubductionModel:
 
     def _initSwarm(self):
 
-        self.swarm = swarm.Swarm(mesh=self.mesh)
+        self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
+        self.swarm.allow_parallel_nn = True
         self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
             swarm=self.swarm, particlesPerCell=20
         )
         self.swarm.populate_using_layout(self.swarmLayout)
         self.populationControl = swarm.PopulationControl(
-            self.swarm, particlesPerCell=20
+            self.swarm,
+            particlesPerCell=20,
+            aggressive=True,
+            splitThreshold=0.15,
+            maxSplits=10,
         )
 
     def _setOutputPath(self):
@@ -373,6 +378,7 @@ class SubductionModel:
         self.populationControl.repopulate()
 
         dt = dt * self.parameters.scalingCoefficient.timeCoefficient.magnitude
+        self.rheologyCalculations.strainRateSolutionExists.value = True
         return time + dt, step + 1
 
     def getMeshHandle(self):

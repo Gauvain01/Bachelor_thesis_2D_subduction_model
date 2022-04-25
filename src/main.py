@@ -22,11 +22,11 @@ if __name__ == "__main__":
         name="test2",
         modelParameterMap=get_Strak_2021_model_parameter_map(),
         resolution=(200, 100),
-        stepAmountCheckpoint=10,
+        stepAmountCheckpoint=50,
         subductionZonePolygons=polygons,
-        totalSteps=50,
+        totalSteps=100,
     )
-    model.run()
+    # model.run()
 
-# lv = FigureViewer("./output/test2")
-# lv.fromCheckPoint(49, model)
+lv = FigureViewer("./output/test2")
+lv.fromCheckPoint(50, model)
