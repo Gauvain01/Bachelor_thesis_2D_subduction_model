@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Union
+import json
+import os
+from FigureManager import FigureManager
 
 from underworld import function as fn
 from underworld import mesh, mpi, swarm, systems
@@ -18,52 +20,79 @@ class BaseModel:
         modelParameters: ModelParameterMap,
         totalSteps: int,
         checkPointSteps: int,
-        name: int,
+        name: str,
+        restart: bool = False,
+        restartStep: int = None,
     ) -> None:
+        self.restart = restart
+        self.restartStep = restartStep
         self.name = name
         self.totalSteps = totalSteps
         self.checkPointSteps = checkPointSteps
         self.parameters = modelParameters
         self._setMesh()
         self._setSwarm()
-        self._addMeshVariable("pressureField", "double", 1, subMesh=True)
-        self._addMeshVariable("velocityField", "double", 2)
-        self._addMeshVariable("_strainRateField", "double", 1, subMesh=True)
-        self._addSwarmVariable("_viscosityField", "double", 1)
-        self._addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
-        self._addSwarmVariable("_stressField", "double", 1)
-        self._addMeshVariable(
-            "_projectedStress", "double", nodeDofCount=1, subMesh=True
+        self.addMeshVariable(
+            "pressureField", "double", 1, subMesh=True, restartVariable=True
         )
-        self._addSwarmVariable("_stressTensor", "double", count=3)
-        self._addMeshVariable(
+        self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
+        self.addMeshVariable("_strainRateField", "double", 1, subMesh=True)
+        self.addSwarmVariable("_viscosityField", "double", 1)
+        self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
+        self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
+        self.addMeshVariable("_projectedStress", "double", nodeDofCount=1, subMesh=True)
+        self.addSwarmVariable("_stressTensor", "double", count=3)
+        self.addMeshVariable(
             "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
         )
-        self._addSwarmVariable("_materialVariable", dataType="int", count=1)
+        self.addSwarmVariable(
+            "_materialVariable", dataType="int", count=1, restartVariable=True
+        )
+        self._initMaterialVariable()
+        self._initTemperatureVariables()
         self.modelStep = 0
         self.modelTime = 0
         self._solutionExists = fn.misc.constant(False)
         self._hasTemperatureDotField = False
         self._hasTemperatureField = False
+        self._figureManager = FigureManager(self.outputPath, self.name)
 
-    def _addMeshVariable(
-        self, name: str, dataType: str, nodeDofCount, subMesh: bool = False
+    def addMeshVariable(
+        self,
+        name: str,
+        dataType: str,
+        nodeDofCount,
+        subMesh: bool = False,
+        restartVariable: bool = False,
     ):
         if subMesh:
             field = mesh.MeshVariable(self.mesh.subMesh, nodeDofCount, dataType)
         else:
             field = mesh.MeshVariable(self.mesh, nodeDofCount, dataType)
+        if restartVariable:
+            self._meshVarForSaving.append((name, subMesh))
+        if self.restart and restartVariable:
+            self.checkPointManager.loadField(
+                name=name, step=self.restartStep, field=field
+            )
         setattr(self, name.value, field)
-        self._meshVarForSaving.append(name)
+        self._meshVarForSaving.append((name, subMesh))
 
-    def _addSwarmVariable(self, name: str, dataType: str, count: int):
+    def addSwarmVariable(
+        self, name: str, dataType: str, count: int, restartVariable: bool = False
+    ):
         self.swarm: swarm.Swarm
         field = self.swarm.add_variable(dataType, count)
+        if restartVariable:
+            self._swarmVarForSaving.append(name)
+        if self.restart and restartVariable:
+            self.checkPointManager.loadField(
+                name=name, step=self.restartStep, field=field
+            )
         setattr(self, name, field)
-        self._swarmVarForSaving.append(name)
 
     @abstractmethod
-    def _init_temperature_variables(self):
+    def _initTemperatureVariables(self):
         pass
 
     @abstractmethod
@@ -79,9 +108,8 @@ class BaseModel:
     def outputPath(self):
         pass
 
-    @property
     @abstractmethod
-    def materialVariable(self):
+    def _initMaterialVariable(self):
         pass
 
     @property
@@ -113,6 +141,10 @@ class BaseModel:
     @abstractmethod
     def temperatureBC(self):
         pass
+
+    @property
+    def materialVariable(self):
+        return self._materialVariable
 
     @property
     def _swarmVarForSaving(self):
@@ -242,6 +274,10 @@ class BaseModel:
 
         return obj
 
+    @property
+    def figureManager(self):
+        return self._figureManager
+
     def solve(self):
         self.solver.solve(
             nonLinearIterate=True, nonLinearTolerance=1e-2, print_stats=True
@@ -252,7 +288,19 @@ class BaseModel:
         pass
 
     def _checkPoint(self):
-        for name in self._meshVarForSaving:
+        if mpi.rank == 0:
+            stepString = str(self.modelStep).zfill(5)
+            stepOutputPath = self.outputPath + "/" + stepString
+            newtime = (
+                self.modelTime * self.parameters.scalingCoefficient.timeCoefficient
+            ) / 31556952
+            os.mkdir(stepOutputPath)
+            os.mkdir(stepOutputPath + "/h5")
+            os.mkdir(stepOutputPath + "/xdmf")
+            with open(stepOutputPath + "/time.json", "w") as f:
+                json.dump({"time": f"{newtime:.3e} yrs"}, f)
+
+        for name, subMesh in self._meshVarForSaving:
             obj = getattr(self, name)
             self.checkPointManager.saveField(
                 name=name,
@@ -270,14 +318,24 @@ class BaseModel:
                 step=self.modelStep,
                 time=self.modelTime,
             )
+        self.figureManager.saveParticleViscosity(
+            self.swarm, self.viscosityFn, self.modelStep
+        )
+        self.figureManager.saveStrainRate(
+            strainRate2ndInvariant=self.strainRateField,
+            mesh=self.mesh,
+            step=self.modelStep,
+        )
+        self.figureManager.saveStressField(
+            self.swarm, self.projectedStressField, self.modelStep
+        )
+        self.figureManager.saveTemperatureField(
+            self.mesh, self.temperature, self.modelStep
+        )
+        self.figureManager.saveVelocity(
+            self.velocityField, self.mesh, self.swarm, self.viscosityFn
+        )
 
     @abstractmethod
-    def _run(self):
-        pass
-
-    def _cleanup(self):
-        pass
-
     def run(self):
-        self._run()
-        self._cleanup()
+        pass

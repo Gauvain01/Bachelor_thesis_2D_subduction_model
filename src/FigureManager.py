@@ -11,22 +11,23 @@ class FigureManager:
         self.store = visualisation.Store(f"{self.outputPath}/FigStore")
         self.directView = directView
 
-    def saveFig(self, fig):
+    def saveFig(self, fig: visualisation.Figure):
         if self.directView:
             fig.show()
         else:
             fig.save()
 
-    def _getFig(self, title) -> visualisation.Figure:
+    def _getFig(self, title, name) -> visualisation.Figure:
         fig = visualisation.Figure(
             store=self.store,
             figsize=(1080, 720),
             title=title,
+            name=name + str(mpi.rank),
         )
         return fig
 
-    def getParticlePlot(self, swarm, materialVariable):
-        fig = self._getFig(f"{self.name} particles")
+    def getParticlePlot(self, swarm, materialVariable, step):
+        fig = self._getFig(f"{self.name} particles", f"particlePlot_{step}_")
         fig.append(
             visualisation.objects.Points(
                 swarm,
@@ -38,16 +39,18 @@ class FigureManager:
         )
         self.saveFig(fig)
 
-    def saveVelocity(self, velocityField, mesh, swarm, viscosityFn) -> None:
-        fig = self._getFig(f"{self.name} Velocity")
+    def saveVelocity(self, velocityField, mesh, swarm, viscosityFn, step) -> None:
+        fig = self._getFig(f"{self.name} Velocity", f"velocity_{step}_")
         fig.append(
             visualisation.objects.Points(swarm, viscosityFn, pointSize=2, logScale=True)
         )
         fig.append(visualisation.objects.VectorArrows(mesh, velocityField))
         self.saveFig(fig)
 
-    def saveStrainRate(self, strainRate2ndInvariant, mesh) -> None:
-        fig = self._getFig(f"{self.name} Strain Rate 2nd Invariant")
+    def saveStrainRate(self, strainRate2ndInvariant, mesh, step) -> None:
+        fig = self._getFig(
+            f"{self.name} Strain Rate 2nd Invariant", f"strainRate_{step}_"
+        )
         fig.append(
             visualisation.objects.Surface(
                 mesh, strainRate2ndInvariant, onMesh=True, logScale=True
@@ -55,29 +58,23 @@ class FigureManager:
         )
         self.saveFig(fig)
 
-    def saveParticleViscosity(self, swarm, viscosityFn) -> None:
-        fig = self._getFig(f"{self.name} Viscosity")
+    def saveParticleViscosity(self, swarm, viscosityFn, step) -> None:
+        fig = self._getFig(f"{self.name} Viscosity", f"viscosity_{step}_")
 
         fig.append(
             visualisation.objects.Points(swarm, viscosityFn, pointSize=2, logScale=True)
         )
         self.saveFig(fig)
 
-    def saveTemperatureField(self, mesh, temperatureField):
-        fig = self._getFig(f"{self.name} Temperature")
+    def saveTemperatureField(self, mesh, temperatureField, step):
+        fig = self._getFig(f"{self.name} Temperature", f"temperature_{step}_")
         fig.append(visualisation.objects.Surface(mesh, temperatureField))
         self.saveFig(fig)
 
-    def saveTemperatureDotField(self, mesh, temperatureDotField):
-        fig = self._getFig(f"{self.name} TemperatureDotField")
-        fig.append(
-            visualisation.objects.Surface(mesh, temperatureDotField, onMesh=True)
-        )
+    def saveStressField(self, mesh, stressField, step) -> None:
+        fig = self._getFig(f"{self.name} StressField", f"stressField_{step}_")
 
-    def saveStress2ndInvariant(self, swarm, stress2ndInvariant) -> None:
-        fig = self._getFig(f"{self.name} Stress 2nd Invariant")
-
-        fig.append(visualisation.objects.Points(swarm, stress2ndInvariant, pointSize=2))
+        fig.append(visualisation.objects.Surface(mesh, stressField, onMesh=True))
         self.saveFig(fig)
 
     def incrementStoreStep(self) -> None:

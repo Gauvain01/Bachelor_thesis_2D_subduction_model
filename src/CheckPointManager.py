@@ -17,6 +17,13 @@ class CheckPointManager:
         stepOutputPath = self.outputPath + "/" + stepString
         return stepOutputPath
 
+    def loadField(
+        self, name: str, step: int, field: Union[Mesh.MeshVariable, swarm.SwarmVariable]
+    ):
+        with mpi.call_pattern("collective"):
+            path = self._getH5Path(step) + name + ".h5"
+            field.load(path, interpolate=True)
+
     def saveField(
         self,
         name: str,
