@@ -1,8 +1,5 @@
 from underworld import visualisation
 
-from FigureManager import FigureManager
-from OldSubductionModel import OldSubductionModel
-
 
 class FigureViewer:
     def __init__(self, modelPath) -> None:
@@ -14,23 +11,3 @@ class FigureViewer:
 
         viewer.step = step
         viewer.showall()
-
-    def fromCheckPoint(self, step: int, model: OldSubductionModel):
-        model.fromCheckpoint = True
-        model._fromCheckpointStep = step
-        model._initFromCheckPoint(step)
-        mesh = model.mesh
-        swarm = model.swarm
-        figManager = FigureManager(model.outputPath, model.name, True)
-        figManager.getParticlePlot(swarm, model.materialVariable)
-        figManager.saveParticleViscosity(swarm, model.viscosityFn)
-        figManager.saveStrainRate(
-            model.rheologyCalculations.getStrainRateSecondInvariant(
-                model.velocityField
-            ),
-            mesh,
-        )
-        figManager.saveTemperatureField(mesh, model.temperatureField)
-        figManager.saveStressField(swarm, model.stress2ndInvariant)
-        figManager.saveVelocity(model.velocityField, mesh, swarm, model.viscosityFn)
-        figManager.saveTemperatureDotField(mesh, model.temperatureDotField)

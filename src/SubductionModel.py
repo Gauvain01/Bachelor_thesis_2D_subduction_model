@@ -1,6 +1,7 @@
 import math
 from time import time
 from typing import Tuple
+from unicodedata import name
 
 from underworld import conditions
 from underworld import function as fn
@@ -34,7 +35,7 @@ class SubductionModel(BaseModel):
     def _setMesh(self):
         self.mesh = mesh.FeMesh_Cartesian(
             elementType="Q1/dQ0",
-            elementRes=(self.resolution),
+            elementRes=(self._resolution),
             minCoord=(0.0, 0.0),
             maxCoord=(
                 self.parameters.modelLength.nonDimensionalValue.magnitude,
@@ -58,14 +59,10 @@ class SubductionModel(BaseModel):
         )
 
     def _initTemperatureVariables(self):
-        self.addMeshVariable(
-            "_temperatureField", "double", nodeDofCount=1, restartVariable=True
-        )
-        self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
-        self._temperatureDotField[...] = 0.0
 
-        self.addSwarmVariable("_proxyTemp", "double", 1)
-        self._proxyTemp.data[:] = 1.0
+        self._temperatureDotField.data[...] = 0.0
+
+        self._proxyTemp.data[...] = 1.0
 
         for index in range(len(self.swarm.particleCoordinates.data)):
             coord = self.swarm.particleCoordinates.data[index][:]
@@ -238,6 +235,11 @@ class SubductionModel(BaseModel):
         return temperatureBoundaryCondition
 
     @property
+    def outputPath(self):
+        path = f"./output/{self.name}"
+        return path
+
+    @property
     def upperMantleIndex(self):
         return 0
 
@@ -302,7 +304,7 @@ class SubductionModel(BaseModel):
                 self.modelStep % self.checkPointSteps == 0
                 or self.modelStep == self.totalSteps - 1
             ):
-                self._checkpoint(self.modelStep, self.modelTime)
+                self._checkPoint()
 
                 print(
                     f"{self.name = }, {self.modelStep = } {self.modelTime = :.3e} {self.vrms = :.3e} "

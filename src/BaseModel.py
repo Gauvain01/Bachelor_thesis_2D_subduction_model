@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 import json
 import os
-from FigureManager import FigureManager
+from abc import abstractmethod
 
 from underworld import function as fn
 from underworld import mesh, mpi, swarm, systems
 from underworld.function import Function
 
 from CheckPointManager import CheckPointManager
+from FigureManager import FigureManager
 from meshProjector import meshProjector
 from modelParameters import ModelParameterMap
 
@@ -30,6 +30,14 @@ class BaseModel:
         self.totalSteps = totalSteps
         self.checkPointSteps = checkPointSteps
         self.parameters = modelParameters
+        self.modelStep = 0
+        self.modelTime = 0
+        self._swarmVarForSaving = []
+        self._meshVarForSaving = []
+        self._solutionExists = fn.misc.constant(False)
+        self._hasTemperatureDotField = False
+        self._hasTemperatureField = False
+        self._figureManager = FigureManager(self.outputPath, self.name)
         self._setMesh()
         self._setSwarm()
         self.addMeshVariable(
@@ -40,7 +48,9 @@ class BaseModel:
         self.addSwarmVariable("_viscosityField", "double", 1)
         self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
         self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
-        self.addMeshVariable("_projectedStress", "double", nodeDofCount=1, subMesh=True)
+        self.addMeshVariable(
+            "_projectedStressField", "double", nodeDofCount=1, subMesh=True
+        )
         self.addSwarmVariable("_stressTensor", "double", count=3)
         self.addMeshVariable(
             "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
@@ -48,14 +58,23 @@ class BaseModel:
         self.addSwarmVariable(
             "_materialVariable", dataType="int", count=1, restartVariable=True
         )
+        self.addSwarmVariable("_proxyTemp", "double", 1)
+        self.addMeshVariable(
+            "_temperatureField", "double", nodeDofCount=1, restartVariable=True
+        )
+        self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
+        self.pressureField.data[:] = 0.0
         self._initMaterialVariable()
         self._initTemperatureVariables()
-        self.modelStep = 0
-        self.modelTime = 0
-        self._solutionExists = fn.misc.constant(False)
-        self._hasTemperatureDotField = False
-        self._hasTemperatureField = False
-        self._figureManager = FigureManager(self.outputPath, self.name)
+        self._makeOutputDir()
+
+    def _makeOutputDir(self):
+        if mpi.rank == 0:
+            try:
+                os.mkdir(self.outputPath)
+            except FileExistsError:
+                pass
+        mpi.barrier()
 
     def addMeshVariable(
         self,
@@ -75,7 +94,7 @@ class BaseModel:
             self.checkPointManager.loadField(
                 name=name, step=self.restartStep, field=field
             )
-        setattr(self, name.value, field)
+        setattr(self, name, field)
         self._meshVarForSaving.append((name, subMesh))
 
     def addSwarmVariable(
@@ -147,23 +166,13 @@ class BaseModel:
         return self._materialVariable
 
     @property
-    def _swarmVarForSaving(self):
-        obj = []
-        return obj
-
-    @property
-    def _meshVarForSaving(self):
-        obj = []
-        return obj
-
-    @property
     def checkPointManager(self) -> CheckPointManager:
         obj = CheckPointManager(self.name, self.outputPath)
         return obj
 
     @property
     def temperature(self):
-        if not self._hasTemperature:
+        if not self._hasTemperatureField:
             if hasattr(self, "_temperatureField"):
                 self._hasTemperatureField = True
             else:
@@ -199,9 +208,9 @@ class BaseModel:
 
     @property
     def projectedStressField(self):
-        stress = fn.tensor.second_invariant(self.stressFn)
-        self._stressField.data[...] = stress.evaluate(self.swarm)
-        meshProjector(self._projectedStress, self._stressField)
+
+        self._stressField.data[...] = self.stressFn.evaluate(self.swarm)
+        meshProjector(self._projectedStressField, self._stressField)
         return self._projectedStressField
 
     @property
@@ -212,6 +221,7 @@ class BaseModel:
 
     @property
     def stokes(self):
+        mpi.barrier()
         self._stokes = systems.Stokes(
             velocityField=self.velocityField,
             pressureField=self.pressureField,
@@ -294,9 +304,18 @@ class BaseModel:
             newtime = (
                 self.modelTime * self.parameters.scalingCoefficient.timeCoefficient
             ) / 31556952
-            os.mkdir(stepOutputPath)
-            os.mkdir(stepOutputPath + "/h5")
-            os.mkdir(stepOutputPath + "/xdmf")
+            try:
+                os.mkdir(stepOutputPath)
+            except FileExistsError:
+                pass
+            try:
+                os.mkdir(stepOutputPath + "/h5")
+            except FileExistsError:
+                pass
+            try:
+                os.mkdir(stepOutputPath + "/xdmf")
+            except FileExistsError:
+                pass
             with open(stepOutputPath + "/time.json", "w") as f:
                 json.dump({"time": f"{newtime:.3e} yrs"}, f)
 

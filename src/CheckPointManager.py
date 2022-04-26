@@ -28,7 +28,7 @@ class CheckPointManager:
         self,
         name: str,
         field: Union[Mesh.MeshVariable, swarm.SwarmVariable],
-        Handle,
+        handle,
         step: int,
         time,
     ):
@@ -37,15 +37,24 @@ class CheckPointManager:
             xdmfPath = self._getXdmfPath(step)
 
             fieldHnd = field.save(h5Path + f"{name}.h5")
-
-            field.xdmf(
-                filename=xdmfPath + f"{name}.xdmf",
-                fieldSavedData=fieldHnd,
-                varname=name,
-                meshSavedData=Handle,
-                meshname="mesh",
-                modeltime=time,
-            )
+            if isinstance(field, Mesh.MeshVariable):
+                field.xdmf(
+                    filename=xdmfPath + f"{name}.xdmf",
+                    fieldSavedData=fieldHnd,
+                    varname=name,
+                    meshSavedData=handle,
+                    meshname="mesh",
+                    modeltime=time,
+                )
+            if isinstance(field, swarm.SwarmVariable):
+                field.xdmf(
+                    filename=xdmfPath + f"{name}.xdmf",
+                    varSavedData=fieldHnd,
+                    varname=name,
+                    swarmSavedData=handle,
+                    swarmname="swarm",
+                    modeltime=time,
+                )
 
     def _getH5Path(self, step: int):
         return self._getStepOutputPath(step) + "/h5/"

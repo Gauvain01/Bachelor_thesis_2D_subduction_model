@@ -74,7 +74,7 @@ class FigureManager:
     def saveStressField(self, mesh, stressField, step) -> None:
         fig = self._getFig(f"{self.name} StressField", f"stressField_{step}_")
 
-        fig.append(visualisation.objects.Surface(mesh, stressField, onMesh=True))
+        fig.append(visualisation.objects.Surface(mesh, stressField))
         self.saveFig(fig)
 
     def incrementStoreStep(self) -> None:
