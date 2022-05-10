@@ -5,7 +5,9 @@ import os
 from abc import abstractmethod
 
 from underworld import function as fn
-from underworld import mesh, mpi, swarm, systems
+from underworld import mesh, mpi
+from underworld import scaling as sca
+from underworld import swarm, systems
 from underworld.function import Function
 
 from CheckPointManager import CheckPointManager
@@ -41,33 +43,36 @@ class BaseModel:
         self._setMesh()
         self._setSwarm()
         mpi.barrier()
-        with mpi.call_pattern():
-            self.addMeshVariable(
-                "pressureField", "double", 1, subMesh=True, restartVariable=True
-            )
-            self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
-            self.addMeshVariable("_strainRateField", "double", 1, subMesh=True)
-            self.addSwarmVariable("_viscosityField", "double", 1)
-            self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
-            self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
-            self.addMeshVariable(
-                "_projectedStressField", "double", nodeDofCount=1, subMesh=True
-            )
-            self.addSwarmVariable("_stressTensor", "double", count=3)
-            self.addMeshVariable(
-                "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
-            )
-            self.addSwarmVariable(
-                "_materialVariable", dataType="int", count=1, restartVariable=True
-            )
-            self.addSwarmVariable("_proxyTemp", "double", 1)
-            self.addMeshVariable(
-                "_temperatureField", "double", nodeDofCount=1, restartVariable=True
-            )
-            self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
-            self.pressureField.data[:] = 0.0
-            self._initMaterialVariable()
-            self._initTemperatureVariables()
+        self.addMeshVariable(
+            "pressureField", "double", 1, subMesh=True, restartVariable=True
+        )
+        self.addSwarmVariable(
+            "_materialVariable", dataType="int", count=1, restartVariable=True
+        )
+        self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
+        self.addMeshVariable("_strainRateField", "double", 1, subMesh=True)
+        self.addSwarmVariable("_viscosityField", "double", 1)
+        self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
+        self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
+
+        self.pressureField.data[:] = 0.0
+        self.addSwarmVariable("_proxyTemp", "double", 1)
+        self.addMeshVariable(
+            "_temperatureField", "double", nodeDofCount=1, restartVariable=True
+        )
+        self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
+        self._initMaterialVariable()
+        self._initTemperatureVariables()
+        mpi.barrier()
+        self.testStokes()
+        self.addMeshVariable(
+            "_projectedStressField", "double", nodeDofCount=1, subMesh=True
+        )
+        self.addSwarmVariable("_stressTensor", "double", count=3)
+        self.addMeshVariable(
+            "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
+        )
+
         self._makeOutputDir()
         self.testStokes()
 
@@ -223,28 +228,28 @@ class BaseModel:
         return self._projectedStressTensor
 
     def testStokes(self):
+
         velField = self.velocityField
-        mpi.barrier()
         pField = self.pressureField
-        mpi.barrier()
+
         viscosityFn = self.viscosityFn
-        mpi.barrier()
+
         bodyForce = self.buoyancyFn
-        mpi.barrier()
+
         condition = self.velocityBC
+
+        print(" i am here")
         mpi.barrier()
-        with mpi.call_pattern():
-            print(" i am here")
-            systems.Stokes(
-                velocityField=velField,
-                pressureField=pField,
-                fn_viscosity=viscosityFn,
-                fn_bodyforce=bodyForce,
-                conditions=[
-                    condition,
-                ],
-            )
-            print("tested stokes succesfully")
+        systems.Stokes(
+            velocityField=velField,
+            pressureField=pField,
+            fn_viscosity=viscosityFn,
+            fn_bodyforce=bodyForce,
+            conditions=[
+                condition,
+            ],
+        )
+        print("tested stokes succesfully")
 
     @property
     def stokes(self):
@@ -331,12 +336,11 @@ class BaseModel:
         pass
 
     def _checkPoint(self):
+
         if mpi.rank == 0:
             stepString = str(self.modelStep).zfill(5)
             stepOutputPath = self.outputPath + "/" + stepString
-            newtime = (
-                self.modelTime * self.parameters.scalingCoefficient.timeCoefficient
-            ) / 31556952
+            newtime = sca.non_dimensionalise(self.modelTime) / 31556952
             try:
                 os.mkdir(stepOutputPath)
             except FileExistsError:

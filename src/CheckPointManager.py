@@ -134,12 +134,10 @@ class CheckPointManager:
         stepOutputPath = self.outputPath + "/" + stepString
 
         if mpi.rank == 0:
-            newtime = time / 31556952
             os.mkdir(stepOutputPath)
             os.mkdir(stepOutputPath + "/h5")
             os.mkdir(stepOutputPath + "/xdmf")
-            with open(stepOutputPath + "/time.json", "w") as f:
-                json.dump({"time": f"{newtime:.3e} yrs"}, f)
+
         mpi.barrier()
 
         h5Path = stepOutputPath + "/h5/"

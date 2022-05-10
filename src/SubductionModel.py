@@ -37,35 +37,33 @@ class SubductionModel(BaseModel):
         )
 
     def _setMesh(self):
-        with mpi.call_pattern():
-            self.mesh = mesh.FeMesh_Cartesian(
-                elementType="Q1/dQ0",
-                elementRes=(self._resolution),
-                minCoord=(0.0, 0.0),
-                maxCoord=(
-                    self.parameters.modelLength.nonDimensionalValue.magnitude,
-                    self.parameters.modelHeight.nonDimensionalValue.magnitude,
-                ),
-                periodic=[True, True],
-            )
-            print("finished Mesh")
+        self.mesh = mesh.FeMesh_Cartesian(
+            elementType="Q1/dQ0",
+            elementRes=(self._resolution),
+            minCoord=(0.0, 0.0),
+            maxCoord=(
+                self.parameters.modelLength.nonDimensionalValue.magnitude,
+                self.parameters.modelHeight.nonDimensionalValue.magnitude,
+            ),
+            periodic=[True, True],
+        )
+        print("finished Mesh")
 
     def _setSwarm(self):
-        with mpi.call_pattern():
-            self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
-            self.swarm.allow_parallel_nn = True
-            self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
-                swarm=self.swarm, particlesPerCell=20
-            )
-            self.swarm.populate_using_layout(self.swarmLayout)
-            self.populationControl = swarm.PopulationControl(
-                self.swarm,
-                particlesPerCell=20,
-                aggressive=True,
-                splitThreshold=0.15,
-                maxSplits=10,
-            )
-            print("finishedSwarm")
+        self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
+        self.swarm.allow_parallel_nn = True
+        self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
+            swarm=self.swarm, particlesPerCell=20
+        )
+        self.swarm.populate_using_layout(self.swarmLayout)
+        self.populationControl = swarm.PopulationControl(
+            self.swarm,
+            particlesPerCell=20,
+            aggressive=True,
+            splitThreshold=0.15,
+            maxSplits=10,
+        )
+        print("finishedSwarm")
 
     def _initTemperatureVariables(self):
         print("hi")
@@ -94,8 +92,7 @@ class SubductionModel(BaseModel):
             if self.slabLowerPoly.evaluate(tuple(coord)):
                 self.materialVariable.data[index] = self.lowerSlabIndex
                 self._proxyTemp.data[index] = 0.0
-            count += 1
-            print(count)
+
         print("startedSolverForTemp")
         TmapSolver = utils.MeshVariable_Projection(
             self._temperatureField, self._proxyTemp
@@ -165,25 +162,18 @@ class SubductionModel(BaseModel):
 
     @property
     def viscosityFn(self) -> Function:
-
         # reduction of viscosity of top layer using von Mises criterion
         # checkForYieldStress
-        yieldStress = (
-            self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
-        )
+
         spTopLayerViscosity = (
             self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
         )
+        VonMisesReduction = fn.misc.min(spTopLayerViscosity, self.vonMisesUpperLayerSP)
+        # check if solutionExists
         spTopLayerVonMisesReduction = fn.branching.conditional(
             [
-                (
-                    self.stressFn >= yieldStress,
-                    self.vonMisesUpperLayerSP,
-                ),
-                (
-                    self.stressFn < yieldStress,
-                    spTopLayerViscosity,
-                ),
+                (self._solutionExists, VonMisesReduction),
+                (True, spTopLayerViscosity),
             ]
         )
 
@@ -220,7 +210,7 @@ class SubductionModel(BaseModel):
             self.coreSlabIndex: visCoreLayer,
             self.upperSlabIndex: conditionTopLayer,
         }
-        mpi.barrier()
+
         return fn.branching.map(fn_key=self.materialVariable, mapping=viscosityMap)
 
     @property
@@ -329,6 +319,8 @@ class SubductionModel(BaseModel):
         self.modelTime += dt
         self.modelStep += 1
         self.figureManager.incrementStoreStep()
+        stress = self.stressFn.evaluate(self.swarm)
+        self._stressField.data[...] = stress
 
     @property
     def vrms(self):
