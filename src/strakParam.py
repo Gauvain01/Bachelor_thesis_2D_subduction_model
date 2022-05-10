@@ -60,11 +60,11 @@ def get_Strak_2021_model_parameter_map(blueprint=False) -> ModelParameterMap:
 
     StrakParameterDao = (
         builder.setGasConstant(8.3145 * u.pascal * u.second)
-        .setYieldStressOfSpTopLayer(21e6 * u.pascal, ScalingCoefficientType.STRESS)
+        .setYieldStressOfSpTopLayer(21e5 * u.pascal, ScalingCoefficientType.STRESS)
         .setCoreShearModulus(4.0e8 * u.pascal, ScalingCoefficientType.STRESS)
         .setLowerMantleHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
         .setModelHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
-        .setModelLength(11800e3 * u.meter, ScalingCoefficientType.LENGTH)
+        .setModelLength(5280e3 * u.meter, ScalingCoefficientType.LENGTH)
         .setGravitationalAcceleration(
             9.81 * u.meter / u.second**2, ScalingCoefficientType.NONE
         )

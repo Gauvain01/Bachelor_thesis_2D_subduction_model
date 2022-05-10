@@ -28,70 +28,94 @@ class SubductionModel(BaseModel):
     ) -> None:
         self._resolution = resolution
         self._polygons = subductionZonePolygons
+        self.slabUpperPoly = self.initSlabUpperPoly()
+        self.slabCorePoly = self.initSlabCorePoly()
+        self.slabLowerPoly = self.initSlabLowerPoly()
+        mpi.barrier()
         super().__init__(
             modelParameters, totalSteps, checkPointSteps, name, restart, restartStep
         )
 
     def _setMesh(self):
-        self.mesh = mesh.FeMesh_Cartesian(
-            elementType="Q1/dQ0",
-            elementRes=(self._resolution),
-            minCoord=(0.0, 0.0),
-            maxCoord=(
-                self.parameters.modelLength.nonDimensionalValue.magnitude,
-                self.parameters.modelHeight.nonDimensionalValue.magnitude,
-            ),
-        )
+        with mpi.call_pattern():
+            self.mesh = mesh.FeMesh_Cartesian(
+                elementType="Q1/dQ0",
+                elementRes=(self._resolution),
+                minCoord=(0.0, 0.0),
+                maxCoord=(
+                    self.parameters.modelLength.nonDimensionalValue.magnitude,
+                    self.parameters.modelHeight.nonDimensionalValue.magnitude,
+                ),
+                periodic=[True, True],
+            )
+            print("finished Mesh")
 
     def _setSwarm(self):
-        self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
-        self.swarm.allow_parallel_nn = True
-        self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
-            swarm=self.swarm, particlesPerCell=20
-        )
-        self.swarm.populate_using_layout(self.swarmLayout)
-        self.populationControl = swarm.PopulationControl(
-            self.swarm,
-            particlesPerCell=20,
-            aggressive=True,
-            splitThreshold=0.15,
-            maxSplits=10,
-        )
+        with mpi.call_pattern():
+            self.swarm = swarm.Swarm(mesh=self.mesh, particleEscape=True)
+            self.swarm.allow_parallel_nn = True
+            self.swarmLayout = swarm.layouts.PerCellSpaceFillerLayout(
+                swarm=self.swarm, particlesPerCell=20
+            )
+            self.swarm.populate_using_layout(self.swarmLayout)
+            self.populationControl = swarm.PopulationControl(
+                self.swarm,
+                particlesPerCell=20,
+                aggressive=True,
+                splitThreshold=0.15,
+                maxSplits=10,
+            )
+            print("finishedSwarm")
 
     def _initTemperatureVariables(self):
-
+        print("hi")
+        mpi.barrier()
+        # with mpi.call_pattern():
         self._temperatureDotField.data[...] = 0.0
 
         self._proxyTemp.data[...] = 1.0
-
+        self.materialVariable.data[:] = self.upperMantleIndex
+        print("i am here")
+        print(len(self.swarm.particleCoordinates.data))
+        count = 0
         for index in range(len(self.swarm.particleCoordinates.data)):
             coord = self.swarm.particleCoordinates.data[index][:]
-            # if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude:
+            # if (
+            #     coord[1]
+            #     < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude
+            # ):
             #     self.materialVariable.data[index] = self.lowerMantleIndex
             if self.slabUpperPoly.evaluate(tuple(coord)):
+                self.materialVariable.data[index] = self.upperSlabIndex
                 self._proxyTemp.data[index] = 0.0
             if self.slabCorePoly.evaluate(tuple(coord)):
+                self.materialVariable.data[index] = self.coreSlabIndex
                 self._proxyTemp.data[index] = 0.0
             if self.slabLowerPoly.evaluate(tuple(coord)):
+                self.materialVariable.data[index] = self.lowerSlabIndex
                 self._proxyTemp.data[index] = 0.0
+            count += 1
+            print(count)
+        print("startedSolverForTemp")
         TmapSolver = utils.MeshVariable_Projection(
             self._temperatureField, self._proxyTemp
         )
+        print("done")
         TmapSolver.solve()
         print("solved TemperatureField")
 
-    @property
-    def slabUpperPoly(self):
+    def initSlabUpperPoly(self):
+
         upper = self._polygons.getUpperSlabShapeArray()
         return fn.shape.Polygon(upper)
 
-    @property
-    def slabCorePoly(self):
+    def initSlabCorePoly(self):
+
         core = self._polygons.getMiddleSlabShapeArray()
         return fn.shape.Polygon(core)
 
-    @property
-    def slabLowerPoly(self):
+    def initSlabLowerPoly(self):
+
         lower = self._polygons.getLowerSlabShapeArray()
         return fn.shape.Polygon(lower)
 
@@ -142,10 +166,29 @@ class SubductionModel(BaseModel):
     @property
     def viscosityFn(self) -> Function:
 
-        visTopLayer = fn.misc.min(
-            self.vonMisesUpperLayerSP,
-            self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude,  # self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
+        # reduction of viscosity of top layer using von Mises criterion
+        # checkForYieldStress
+        yieldStress = (
+            self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         )
+        spTopLayerViscosity = (
+            self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
+        )
+        spTopLayerVonMisesReduction = fn.branching.conditional(
+            [
+                (
+                    self.stressFn >= yieldStress,
+                    self.vonMisesUpperLayerSP,
+                ),
+                (
+                    self.stressFn < yieldStress,
+                    spTopLayerViscosity,
+                ),
+            ]
+        )
+
+        # optimizing solver in order to not have lower vis in toplayer than 0.1 times the reference viscosity
+        visTopLayer = fn.misc.max(spTopLayerVonMisesReduction, 0.1)
 
         maxDepth = 200e3 * u.meter
         maxDepth = self.parameters.scalingCoefficient.scalingForLength(
@@ -153,6 +196,7 @@ class SubductionModel(BaseModel):
         ).magnitude
         alteredViscosity = 50.0
 
+        # simulating harzburgite weak rheology
         conditionTopLayer = fn.branching.conditional(
             [
                 (self.depthFn > maxDepth, alteredViscosity),
@@ -176,6 +220,7 @@ class SubductionModel(BaseModel):
             self.coreSlabIndex: visCoreLayer,
             self.upperSlabIndex: conditionTopLayer,
         }
+        mpi.barrier()
         return fn.branching.map(fn_key=self.materialVariable, mapping=viscosityMap)
 
     @property
@@ -202,6 +247,7 @@ class SubductionModel(BaseModel):
         Ra = self.rayleighNumber
         thermalDensityFn = Ra * (1.0 - self.temperature)
         buoyancyMapFn = thermalDensityFn * ez
+        mpi.barrier()
         return buoyancyMapFn
 
     @property
@@ -256,21 +302,23 @@ class SubductionModel(BaseModel):
         return 3
 
     def _initMaterialVariable(self):
-        self.materialVariable.data[:] = self.upperMantleIndex
+        # mpi.barrier()
+        # self.materialVariable.data[:] = self.upperMantleIndex
 
-        for index in range(len(self.swarm.particleCoordinates.data)):
-            coord = self.swarm.particleCoordinates.data[index][:]
-            # if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude:
-            #     self.materialVariable.data[index] = self.lowerMantleIndex
-            if self.slabUpperPoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.upperSlabIndex
-            if self.slabCorePoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.coreSlabIndex
-            if self.slabLowerPoly.evaluate(tuple(coord)):
-                self.materialVariable.data[index] = self.lowerSlabIndex
+        # for index in range(len(self.swarm.particleCoordinates.data)):
+        #     coord = self.swarm.particleCoordinates.data[index][:]
+        #     # if coord[1] < self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude:
+        #     #     self.materialVariable.data[index] = self.lowerMantleIndex
+        #     if self.slabUpperPoly.evaluate(tuple(coord)):
+        #         self.materialVariable.data[index] = self.upperSlabIndex
+        #     if self.slabCorePoly.evaluate(tuple(coord)):
+        #         self.materialVariable.data[index] = self.coreSlabIndex
+        #     if self.slabLowerPoly.evaluate(tuple(coord)):
+        #         self.materialVariable.data[index] = self.lowerSlabIndex
+        pass
 
     def _update(self):
-        dt = self.parameters.deltaTime.nonDimensionalValue.magnitude
+        dt = self.advectionDiffusionSystem.get_max_dt()
 
         self.advectionDiffusionSystem.integrate(dt)
         self.swarmAdvector.integrate(dt, update_owners=True)
@@ -295,11 +343,12 @@ class SubductionModel(BaseModel):
 
         check_start_time = time()
         while self.modelStep < self.totalSteps:
-
+            print("started solving")
+            print(f"{self.solver = }")
             self.solver.solve(
                 nonLinearIterate=True, nonLinearTolerance=0.1, print_stats=True
             )
-
+            print("finished solving")
             if (
                 self.modelStep % self.checkPointSteps == 0
                 or self.modelStep == self.totalSteps - 1

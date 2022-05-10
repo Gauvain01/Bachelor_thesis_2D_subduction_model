@@ -12,7 +12,7 @@ if __name__ == "__main__":
         get_Strak_2021_model_parameter_map(),
         27,
         200e3 * u.meter,
-        6000e3 * u.meter,
+        3000e3 * u.meter,
         30e3 * u.meter,
         20e3 * u.meter,
         30e3 * u.meter,
@@ -22,11 +22,12 @@ if __name__ == "__main__":
         modelParameters=get_Strak_2021_model_parameter_map(),
         totalSteps=10,
         checkPointSteps=2,
-        resolution=(40, 40),
+        resolution=(130, 100),
         subductionZonePolygons=polygons,
-        name="test",
+        name="test_2",
     )
+    print("banaan")
     model.run()
 
-    # lv = FigureViewer("./output/test")
-    # lv.fromDb(0)
+    # lv = FigureViewer("src/output/test_1")
+    # lv.fromDb(9)

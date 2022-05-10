@@ -40,33 +40,36 @@ class BaseModel:
         self._figureManager = FigureManager(self.outputPath, self.name)
         self._setMesh()
         self._setSwarm()
-        self.addMeshVariable(
-            "pressureField", "double", 1, subMesh=True, restartVariable=True
-        )
-        self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
-        self.addMeshVariable("_strainRateField", "double", 1, subMesh=True)
-        self.addSwarmVariable("_viscosityField", "double", 1)
-        self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
-        self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
-        self.addMeshVariable(
-            "_projectedStressField", "double", nodeDofCount=1, subMesh=True
-        )
-        self.addSwarmVariable("_stressTensor", "double", count=3)
-        self.addMeshVariable(
-            "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
-        )
-        self.addSwarmVariable(
-            "_materialVariable", dataType="int", count=1, restartVariable=True
-        )
-        self.addSwarmVariable("_proxyTemp", "double", 1)
-        self.addMeshVariable(
-            "_temperatureField", "double", nodeDofCount=1, restartVariable=True
-        )
-        self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
-        self.pressureField.data[:] = 0.0
-        self._initMaterialVariable()
-        self._initTemperatureVariables()
+        mpi.barrier()
+        with mpi.call_pattern():
+            self.addMeshVariable(
+                "pressureField", "double", 1, subMesh=True, restartVariable=True
+            )
+            self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
+            self.addMeshVariable("_strainRateField", "double", 1, subMesh=True)
+            self.addSwarmVariable("_viscosityField", "double", 1)
+            self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
+            self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
+            self.addMeshVariable(
+                "_projectedStressField", "double", nodeDofCount=1, subMesh=True
+            )
+            self.addSwarmVariable("_stressTensor", "double", count=3)
+            self.addMeshVariable(
+                "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
+            )
+            self.addSwarmVariable(
+                "_materialVariable", dataType="int", count=1, restartVariable=True
+            )
+            self.addSwarmVariable("_proxyTemp", "double", 1)
+            self.addMeshVariable(
+                "_temperatureField", "double", nodeDofCount=1, restartVariable=True
+            )
+            self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
+            self.pressureField.data[:] = 0.0
+            self._initMaterialVariable()
+            self._initTemperatureVariables()
         self._makeOutputDir()
+        self.testStokes()
 
     def _makeOutputDir(self):
         if mpi.rank == 0:
@@ -219,9 +222,33 @@ class BaseModel:
         meshProjector(self._projectedStressTensor, self._stressTensor)
         return self._projectedStressTensor
 
+    def testStokes(self):
+        velField = self.velocityField
+        mpi.barrier()
+        pField = self.pressureField
+        mpi.barrier()
+        viscosityFn = self.viscosityFn
+        mpi.barrier()
+        bodyForce = self.buoyancyFn
+        mpi.barrier()
+        condition = self.velocityBC
+        mpi.barrier()
+        with mpi.call_pattern():
+            print(" i am here")
+            systems.Stokes(
+                velocityField=velField,
+                pressureField=pField,
+                fn_viscosity=viscosityFn,
+                fn_bodyforce=bodyForce,
+                conditions=[
+                    condition,
+                ],
+            )
+            print("tested stokes succesfully")
+
     @property
     def stokes(self):
-        mpi.barrier()
+
         self._stokes = systems.Stokes(
             velocityField=self.velocityField,
             pressureField=self.pressureField,
@@ -231,6 +258,7 @@ class BaseModel:
                 self.velocityBC,
             ],
         )
+        print("i got the stokes")
         return self._stokes
 
     @property
@@ -240,7 +268,12 @@ class BaseModel:
 
     @property
     def solver(self):
-        self._solver = systems.Solver(self.stokes)
+        mpi.barrier()
+        print(" i past the barrier for the solver")
+        stokes = self.stokes
+        self._solver = systems.Solver(stokes)
+        self._solver.set_inner_method("mumps")
+        print("i got the solver")
         return self._solver
 
     @property
@@ -273,7 +306,7 @@ class BaseModel:
     def advectionDiffusionSystem(self):
         obj = systems.AdvectionDiffusion(
             phiField=self.temperature,
-            fn_diffusivity=0.0,
+            fn_diffusivity=1e-6,
             fn_sourceTerm=0.0,
             phiDotField=self.temperatureDotField,
             conditions=[
@@ -346,13 +379,13 @@ class BaseModel:
             step=self.modelStep,
         )
         self.figureManager.saveStressField(
-            self.swarm, self.projectedStressField, self.modelStep
+            self.mesh, self.projectedStressField, self.modelStep
         )
         self.figureManager.saveTemperatureField(
             self.mesh, self.temperature, self.modelStep
         )
         self.figureManager.saveVelocity(
-            self.velocityField, self.mesh, self.swarm, self.viscosityFn
+            self.velocityField, self.mesh, self.swarm, self.viscosityFn, self.modelStep
         )
 
     @abstractmethod
