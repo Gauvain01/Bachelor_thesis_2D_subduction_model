@@ -309,7 +309,7 @@ class SubductionModel(BaseModel):
 
     def _update(self):
         # dt = self.advectionDiffusionSystem.get_max_dt()
-        dt = self.advectionDiffusionSystem.get_max_dt()
+        dt = self.swarmAdvector.get_max_dt()
         self.advectionDiffusionSystem.integrate(dt)
         self.swarmAdvector.integrate(dt, update_owners=True)
         self.swarm.update_particle_owners()

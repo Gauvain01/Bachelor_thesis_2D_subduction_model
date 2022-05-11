@@ -311,15 +311,22 @@ class BaseModel:
     def advectionDiffusionSystem(self):
         obj = systems.AdvectionDiffusion(
             phiField=self.temperature,
-            fn_diffusivity=0.0,
-            fn_sourceTerm=0.0,
+            fn_diffusivity=1e-7,
             phiDotField=self.temperatureDotField,
             conditions=[
                 self.temperatureBC,
             ],
             velocityField=self.velocityField,
+            allow_non_q1=True,
         )
-
+        # obj = systems._SLCN_AdvectionDiffusion(
+        #     phiField=self.temperature,
+        #     velocityField=self.velocityField,
+        #     conditions=[
+        #         self.temperatureBC,
+        #     ],
+        #     fn_diffusivity=1e-6,
+        # )
         return obj
 
     @property
