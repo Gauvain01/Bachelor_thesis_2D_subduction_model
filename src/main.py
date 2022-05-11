@@ -23,14 +23,14 @@ if __name__ == "__main__":
     # )
     # model = SubductionModel(
     #     modelParameters=get_Strak_2021_model_parameter_map(),
-    #     totalSteps=10,
-    #     checkPointSteps=2,
+    #     totalSteps=200,
+    #     checkPointSteps=50,
     #     resolution=(130, 100),
     #     subductionZonePolygons=polygons,
-    #     name="test_4",
+    #     name="test_6",
     # )
     # print("banaan")
     # model.run()
 
-    lv = FigureViewer("src/output/test_4")
-    lv.fromDb(9)
+    lv = FigureViewer("src/output/test_6")
+    lv.fromDb(50)

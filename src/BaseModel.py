@@ -311,7 +311,7 @@ class BaseModel:
     def advectionDiffusionSystem(self):
         obj = systems.AdvectionDiffusion(
             phiField=self.temperature,
-            fn_diffusivity=1e-6,
+            fn_diffusivity=0.0,
             fn_sourceTerm=0.0,
             phiDotField=self.temperatureDotField,
             conditions=[
@@ -340,7 +340,7 @@ class BaseModel:
         if mpi.rank == 0:
             stepString = str(self.modelStep).zfill(5)
             stepOutputPath = self.outputPath + "/" + stepString
-            newtime = sca.non_dimensionalise(self.modelTime) / 31556952
+            newtime = sca.dimensionalise(self.modelTime, sca.units.year).magnitude
             try:
                 os.mkdir(stepOutputPath)
             except FileExistsError:
@@ -390,6 +390,9 @@ class BaseModel:
         )
         self.figureManager.saveVelocity(
             self.velocityField, self.mesh, self.swarm, self.viscosityFn, self.modelStep
+        )
+        self.figureManager.saveMaterialVariable(
+            self.materialVariable, self.swarm, self.modelStep
         )
 
     @abstractmethod

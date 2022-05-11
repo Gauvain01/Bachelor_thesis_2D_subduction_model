@@ -58,6 +58,11 @@ class FigureManager:
         )
         self.saveFig(fig)
 
+    def saveMaterialVariable(self, materialVar, swarm, step) -> None:
+        fig = self._getFig(f"{self.name} Material", f"materialVar_{step}_")
+        fig.append(visualisation.objects.Points(swarm, materialVar))
+        self.saveFig(fig)
+
     def saveParticleViscosity(self, swarm, viscosityFn, step) -> None:
         fig = self._getFig(f"{self.name} Viscosity", f"viscosity_{step}_")
 

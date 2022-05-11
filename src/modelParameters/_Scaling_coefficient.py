@@ -19,10 +19,10 @@ class ScalingCoefficient(ABC):
 
     def _setUnderWorldScalingFactors(self):
         sco = scaling.get_coefficients()
-        sco["[length]"] = self.lengthCoefficient
-        sco["[temperature]"] = self.temperatureCoefficient
-        sco["[mass]"] = self.massCoefficient
-        sco["[time]"] = self.timeCoefficient
+        sco["[length]"] = self.lengthCoefficient.to_base_units()
+        sco["[temperature]"] = self.temperatureCoefficient.to_base_units()
+        sco["[mass]"] = self.massCoefficient.to_base_units()
+        sco["[time]"] = self.timeCoefficient.to_base_units()
 
     def nonDimensionalizeUnderworld(self, value):
         return scaling.non_dimensionalise(value)
