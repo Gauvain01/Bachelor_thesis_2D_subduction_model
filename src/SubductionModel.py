@@ -5,7 +5,9 @@ from unicodedata import name
 
 from underworld import conditions
 from underworld import function as fn
-from underworld import mesh, mpi, swarm, utils
+from underworld import mesh, mpi
+from underworld import scaling as sco
+from underworld import swarm, utils
 from underworld.function._function import Function
 from underworld.scaling import units as u
 
@@ -117,10 +119,22 @@ class SubductionModel(BaseModel):
         return fn.shape.Polygon(lower)
 
     @property
-    def strainRate2ndInvariant(self) -> fn.Function:
-        strainRateSecondInvariant = fn.tensor.second_invariant(
-            fn.tensor.symmetric(self.velocityField.fn_gradient)
+    def strainRate(self):
+        defaultStrainRate = (
+            self.parameters.defaultStrainRate.nonDimensionalValue.magnitude
         )
+        strainRt = fn.tensor.symmetric(self.velocityField.fn_gradient)
+
+        conditionToCheckForExistingSolve = [
+            (self._solutionExists, strainRt),
+            (True, defaultStrainRate),
+        ]
+
+        return strainRt
+
+    @property
+    def strainRate2ndInvariant(self) -> fn.Function:
+        strainRateSecondInvariant = fn.tensor.second_invariant(self.strainRate)
         minimalStrainRate = (
             self.parameters.minimalStrainRate.nonDimensionalValue.magnitude
         )
@@ -152,7 +166,7 @@ class SubductionModel(BaseModel):
 
     @property
     def stressFn(self) -> Function:
-        return 2.0 * self.viscosityField * self.strainRateField
+        return 2.0 * self.viscosityField * self.strainRate
 
     @property
     def depthFn(self) -> Function:
@@ -309,7 +323,7 @@ class SubductionModel(BaseModel):
 
     def _update(self):
         # dt = self.advectionDiffusionSystem.get_max_dt()
-        dt = self.swarmAdvector.get_max_dt()
+        dt = self.advectionDiffusionSystem.get_max_dt()
         self.advectionDiffusionSystem.integrate(dt)
         self.swarmAdvector.integrate(dt, update_owners=True)
         self.swarm.update_particle_owners()
@@ -319,8 +333,6 @@ class SubductionModel(BaseModel):
         self.modelTime += dt
         self.modelStep += 1
         self.figureManager.incrementStoreStep()
-        stress = self.stressFn.evaluate(self.swarm)
-        self._stressField.data[...] = stress
 
     @property
     def vrms(self):

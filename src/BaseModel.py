@@ -50,7 +50,8 @@ class BaseModel:
             "_materialVariable", dataType="int", count=1, restartVariable=True
         )
         self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
-        self.addMeshVariable("_strainRateField", "double", 1, subMesh=True)
+        self.addMeshVariable("_strainRateField", "double", 3, subMesh=True)
+        self.addMeshVariable("_2ndInvariantStrainRateField", "double", 1, subMesh=True)
         self.addSwarmVariable("_viscosityField", "double", 1)
         self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
         self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
@@ -151,6 +152,11 @@ class BaseModel:
 
     @property
     @abstractmethod
+    def strainRate(self):
+        pass
+
+    @property
+    @abstractmethod
     def viscosityFn(self) -> Function:
         pass
 
@@ -208,16 +214,23 @@ class BaseModel:
         return self._projectedViscosity
 
     @property
+    def strainRate2ndInvariantField(self):
+        self._2ndInvariantStrainRateField.data[
+            :
+        ] = self.strainRate2ndInvariant.evaluate(self.mesh.subMesh)
+        return self._2ndInvariantStrainRateField
+
+    @property
     def strainRateField(self):
-        self._strainRateField.data[:] = self.strainRate2ndInvariant.evaluate(
-            self.mesh.subMesh
-        )
+        self._strainRateField.data[:] = self.strainRate.evaluate(self.mesh.subMesh)
         return self._strainRateField
 
     @property
     def projectedStressField(self):
 
-        self._stressField.data[...] = self.stressFn.evaluate(self.swarm)
+        self._stressField.data[...] = fn.tensor.second_invariant(
+            self.stressFn
+        ).evaluate(self.swarm)
         meshProjector(self._projectedStressField, self._stressField)
         return self._projectedStressField
 
@@ -385,7 +398,7 @@ class BaseModel:
             self.swarm, self.viscosityFn, self.modelStep
         )
         self.figureManager.saveStrainRate(
-            strainRate2ndInvariant=self.strainRateField,
+            strainRate2ndInvariant=self.strainRate2ndInvariantField,
             mesh=self.mesh,
             step=self.modelStep,
         )
