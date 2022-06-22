@@ -277,11 +277,14 @@ class SubductionModel(BaseModel):
             self.mesh.specialSets["Left_VertexSet"]
             + self.mesh.specialSets["Right_VertexSet"]
         )
+        bottomWall = self.mesh.specialSets["Bottom_VertexSet"]
         topWall = self.mesh.specialSets["Top_VertexSet"]
         temperatureBoundaryCondition = conditions.DirichletCondition(
             variable=self.temperature,
-            indexSetsPerDof=(topWall + verticalWalls),
+            indexSetsPerDof=bottomWall + topWall,
         )
+        self.temperature.data[bottomWall] = 1.0
+        self.temperature.data[topWall] = 0.0
         return temperatureBoundaryCondition
 
     @property

@@ -44,7 +44,53 @@ class SubductionZonePolygons:
         # self.lithosphericForeArcThickness = lithosphericForeArcThickness
         # self.lithosphericFarBackArcThickness = lithospehricFarBackArcThickness
 
-        self._calculatePolygons()
+        self._calculateAlternativePolygons()
+
+    def _calculateAlternativePolygons(self) -> np.ndarray:
+        beginning = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.beginning
+        ).magnitude
+
+        dipLength = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.dipLength
+        ).magnitude
+
+        mH = self.parameterSet.modelHeight.nonDimensionalValue.magnitude
+        D3 = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.lowerPlateThickness
+        ).magnitude
+        D2 = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.middlePlateThickness
+        ).magnitude
+        D1 = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.upperPlateThickness
+        ).magnitude
+        lb = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.plateLength + self.beginning
+        ).magnitude
+        Ltot = self.parameterSet.scalingCoefficient.scalingForLength(
+            self.plateLength
+        ).magnitude
+
+        Lsub = math.cos(self.dip) * dipLength
+        Lop = Ltot - Lsub
+
+        coord1 = (beginning, mH)
+        coord2 = (beginning, coord1[1] - D1)
+        coord3 = (beginning, coord2[1] - D2)
+        coord4 = (beginning, coord3[1] - D3)
+        coord5 = (Lop + beginning, coord1[1])
+        coord6 = (coord5[0] - (math.tan(self.dip) * D1), coord2[1])
+        coord7 = (coord6[0] - (math.tan(self.dip) * D2), coord3[1])
+        coord8 = (coord7[0] - (math.tan(self.dip) * D3), coord4[1])
+        coord9 = (Ltot + beginning, mH - (math.sin(self.dip) * dipLength))
+        coord10 = (Ltot + beginning - (math.tan(self.dip) * D1), coord9[1] - D1)
+        coord11 = (coord10[0] - (math.tan(self.dip) * D2), coord10[1] - D2)
+        coord12 = (coord11[0] - (math.tan(self.dip) * D3), coord11[1] - D3)
+
+        self.upperSlabPolygon = [coord1, coord5, coord9, coord10, coord6, coord2]
+        self.middleSlabPolygon = [coord2, coord6, coord10, coord11, coord7, coord3]
+        self.lowerSlabPolygon = [coord3, coord7, coord11, coord12, coord8, coord4]
 
     def _calculatePolygons(self) -> np.ndarray:
         beginning = self.parameterSet.scalingCoefficient.scalingForLength(

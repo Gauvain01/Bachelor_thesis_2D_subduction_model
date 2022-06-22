@@ -50,12 +50,6 @@ class BaseModel:
             "_materialVariable", dataType="int", count=1, restartVariable=True
         )
         self.addMeshVariable("velocityField", "double", 2, restartVariable=True)
-        self.addMeshVariable("_strainRateField", "double", 3, subMesh=True)
-        self.addMeshVariable("_2ndInvariantStrainRateField", "double", 1, subMesh=True)
-        self.addSwarmVariable("_viscosityField", "double", 1)
-        self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
-        self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
-
         self.pressureField.data[:] = 0.0
         self.addSwarmVariable("_proxyTemp", "double", 1)
         self.addMeshVariable(
@@ -64,18 +58,25 @@ class BaseModel:
         self.addMeshVariable("_temperatureDotField", "double", nodeDofCount=1)
         self._initMaterialVariable()
         self._initTemperatureVariables()
+        self.velocityField.data[:] = 0.0
         mpi.barrier()
         self.testStokes()
-        self.addMeshVariable(
-            "_projectedStressField", "double", nodeDofCount=1, subMesh=True
-        )
+        self.addMeshVariable("_strainRateField", "double", 3, subMesh=True)
+        self.addMeshVariable("_2ndInvariantStrainRateField", "double", 1, subMesh=True)
+        self.addSwarmVariable("_viscosityField", "double", 1)
+        self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
+        self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
         self.addSwarmVariable("_stressTensor", "double", count=3)
         self.addMeshVariable(
             "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
         )
 
+        self.addMeshVariable(
+            "_projectedStressField", "double", nodeDofCount=1, subMesh=True
+        )
+        mpi.barrier()
+
         self._makeOutputDir()
-        self.testStokes()
 
     def _makeOutputDir(self):
         if mpi.rank == 0:
@@ -243,19 +244,26 @@ class BaseModel:
     def testStokes(self):
 
         velField = self.velocityField
+        print(f"{velField =}")
         pField = self.pressureField
+        print(f"{pField =}")
 
         viscosityFn = self.viscosityFn
+        print(f"{viscosityFn =}")
 
         bodyForce = self.buoyancyFn
 
-        condition = self.velocityBC
+        print(f"{bodyForce =}")
 
-        print(" i am here")
+        condition = self.velocityBC
+        print(f"{condition =}")
+
+        print("started testing stokes")
         mpi.barrier()
+        print("after barrier")
         systems.Stokes(
             velocityField=velField,
-            pressureField=pField,
+            pressureField=self.pressureField,
             fn_viscosity=viscosityFn,
             fn_bodyforce=bodyForce,
             conditions=[
