@@ -41,8 +41,11 @@ class FigureManager:
 
     def saveVelocity(self, velocityField, mesh, swarm, viscosityFn, step) -> None:
         fig = self._getFig(f"{self.name} Velocity", f"velocity_{step}_")
+        velocityMagnitude = fn.math.sqrt(fn.math.dot(velocityField, velocityField))
         fig.append(
-            visualisation.objects.Points(swarm, viscosityFn, pointSize=2, logScale=True)
+            visualisation.objects.Points(
+                swarm, velocityMagnitude, pointSize=2, logScale=True
+            )
         )
         fig.append(visualisation.objects.VectorArrows(mesh, velocityField))
         self.saveFig(fig)

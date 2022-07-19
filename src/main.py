@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from underworld import visualisation
+from underworld import mpi, visualisation
 from underworld.scaling import units as u
 
 from FigureViewer import FigureViewer
@@ -9,6 +9,7 @@ from strakParam import get_Strak_2021_model_parameter_map
 from SubductionModel import SubductionModel
 
 if __name__ == "__main__":
+
     polygons = SubductionZonePolygons(
         get_Strak_2021_model_parameter_map(),
         27,
@@ -28,13 +29,7 @@ if __name__ == "__main__":
         checkPointSteps=2,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name="test_34",
+        name=f"test_36",
     )
     print("banaan")
     model.run()
-
-    # # fig = visualisation.Figure(figsize=(3000, 1000))
-    # # fig.append(visualisation.objects.Mesh(model.mesh))
-    # # fig.show()
-    # lv = FigureViewer("src/output/test_16")
-    # lv.fromDb(100)
