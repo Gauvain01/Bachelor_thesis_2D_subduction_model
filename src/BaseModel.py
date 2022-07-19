@@ -65,17 +65,15 @@ class BaseModel:
         self._initMaterialVariable()
         self._initTemperatureVariables()
         mpi.barrier()
-        self.testStokes()
         self.addMeshVariable(
             "_projectedStressField", "double", nodeDofCount=1, subMesh=True
         )
-        self.addSwarmVariable("_stressTensor", "double", count=3)
-        self.addMeshVariable(
-            "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
-        )
-
-        self._makeOutputDir()
+        # self.addSwarmVariable("_stressTensor", "double", count=3)
+        # self.addMeshVariable(
+        #     "_projectedStressTensor", "double", nodeDofCount=3, subMesh=True
+        # )
         self.testStokes()
+        self._makeOutputDir()
 
     def _makeOutputDir(self):
         if mpi.rank == 0:
@@ -243,6 +241,7 @@ class BaseModel:
     def testStokes(self):
 
         velField = self.velocityField
+
         pField = self.pressureField
 
         viscosityFn = self.viscosityFn
@@ -252,7 +251,6 @@ class BaseModel:
         condition = self.velocityBC
 
         print(" i am here")
-        mpi.barrier()
         systems.Stokes(
             velocityField=velField,
             pressureField=pField,

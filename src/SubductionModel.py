@@ -256,20 +256,29 @@ class SubductionModel(BaseModel):
 
     @property
     def velocityBC(self):
-        verticalWalls = (
-            self.mesh.specialSets["Left_VertexSet"]
-            + self.mesh.specialSets["Right_VertexSet"]
-        )
-        lateralWalls = (
-            self.mesh.specialSets["Top_VertexSet"]
-            + self.mesh.specialSets["Bottom_VertexSet"]
-        )
+        # verticalWalls = (
+        #     self.mesh.specialSets["Left_VertexSet"]
+        #     + self.mesh.specialSets["Right_VertexSet"]
+        # )
+        # lateralWalls = (
+        #     self.mesh.specialSets["Top_VertexSet"]
+        #     + self.mesh.specialSets["Bottom_VertexSet"]
+        # )
 
-        VelocityBoundaryCondition = conditions.DirichletCondition(
-            variable=self.velocityField,
-            indexSetsPerDof=(verticalWalls, lateralWalls),
+        # VelocityBoundaryCondition = conditions.DirichletCondition(
+        #     variable=self.velocityField,
+        #     indexSetsPerDof=(verticalWalls, lateralWalls),
+        # )
+        jWalls = (
+            self.mesh.specialSets["MinJ_VertexSet"]
+            + self.mesh.specialSets["MaxJ_VertexSet"]
         )
-        return VelocityBoundaryCondition
+        bottomWall = self.mesh.specialSets["MinJ_VertexSet"]
+
+        periodicBC = conditions.DirichletCondition(
+            variable=self.velocityField, indexSetsPerDof=(bottomWall, jWalls)
+        )
+        return periodicBC
 
     @property
     def temperatureBC(self):
