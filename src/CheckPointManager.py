@@ -62,8 +62,8 @@ class CheckPointManager:
     def _getXdmfPath(self, step: int):
         return self._getStepOutputPath(step) + "/xdmf/"
 
-    def getMesh(self, mesh) -> Mesh.FeMesh_Cartesian:
-        meshPath = self.outputPath + "mesh.00000.h5"
+    def getMesh(self, mesh, step) -> Mesh.FeMesh_Cartesian:
+        meshPath = self._getStepOutputPath(step) + "mesh.00000.h5"
         mesh.load(filename=meshPath)
 
     def getSwarm(self, swarm, step) -> Swarm:

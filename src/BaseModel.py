@@ -357,8 +357,14 @@ class BaseModel:
 
         if mpi.rank == 0:
             stepString = str(self.modelStep).zfill(5)
+            k = self.parameters.thermalDiffusivity.dimensionalValue.magnitude
+
+            lSquared = self.parameters.modelHeight.dimensionalValue.magnitude
+            timeS = (lSquared * lSquared) / k
+
             stepOutputPath = self.outputPath + "/" + stepString
-            newtime = sca.dimensionalise(self.modelTime, sca.units.year).magnitude
+            newtimeInSeconds = self.modelTime * timeS
+            newtime = newtimeInSeconds / (60 * 60 * 24 * 365)
             try:
                 os.mkdir(stepOutputPath)
             except FileExistsError:

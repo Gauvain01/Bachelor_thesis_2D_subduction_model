@@ -249,7 +249,7 @@ class SubductionModel(BaseModel):
     def buoyancyFn(self) -> Function:
         ez = (0.0, -1.0)
         Ra = self.rayleighNumber
-        thermalDensityFn = Ra * (1.0 - self.temperature)
+        thermalDensityFn = Ra * (self.temperature)
         buoyancyMapFn = thermalDensityFn * ez
         mpi.barrier()
         return buoyancyMapFn

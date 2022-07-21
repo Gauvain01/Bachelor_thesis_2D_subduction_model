@@ -29,7 +29,7 @@ if __name__ == "__main__":
         checkPointSteps=2,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name=f"test_36",
+        name=f"test_41",
     )
     print("banaan")
     model.run()

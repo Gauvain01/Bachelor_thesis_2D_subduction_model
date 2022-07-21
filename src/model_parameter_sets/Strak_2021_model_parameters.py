@@ -62,7 +62,7 @@ StrakParameterDao = (
     .setYieldStressOfSpTopLayer(21e6 * u.pascal, ScalingCoefficientType.STRESS)
     .setCoreShearModulus(u.Quantity(1e4))
     .setLowerMantleHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
-    .setModelHeight(2900e3 * u.meter, ScalingCoefficientType.LENGTH)
+    .setModelHeight(660e3 * u.meter, ScalingCoefficientType.LENGTH)
     .setModelLength(11600e3 * u.meter, ScalingCoefficientType.LENGTH)
     .setGravitationalAcceleration(
         9.81 * u.meter / u.second**2, ScalingCoefficientType.NONE
