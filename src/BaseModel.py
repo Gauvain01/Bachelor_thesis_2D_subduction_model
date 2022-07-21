@@ -298,7 +298,7 @@ class BaseModel:
             try:
                 handle = self._meshHandle
             except AttributeError:
-                self._meshHandle = self.mesh.save(self.outputPath + "mesh.00000.h5")
+                self._meshHandle = self.mesh.save(self.outputPath + "/mesh.00000.h5")
                 handle = self._meshHandle
             except Exception as e:
                 raise ValueError(f"problem with meshHandle {e}")
@@ -311,7 +311,7 @@ class BaseModel:
             try:
                 handle = self._swarmHandle
             except AttributeError:
-                self._swarmHandle = self.swarm.save(self.outputPath + "mesh.00000.h5")
+                self._swarmHandle = self.swarm.save(self.outputPath + "/mesh.00000.h5")
                 handle = self._swarmHandle
             except Exception as e:
                 raise ValueError(f"problem with swarmHandle {e}")
@@ -322,7 +322,7 @@ class BaseModel:
     def advectionDiffusionSystem(self):
         obj = systems.AdvectionDiffusion(
             phiField=self.temperature,
-            fn_diffusivity=1e-7,
+            fn_diffusivity=1e-6,
             phiDotField=self.temperatureDotField,
             conditions=[
                 self.temperatureBC,
@@ -413,7 +413,11 @@ class BaseModel:
             self.mesh, self.temperature, self.modelStep
         )
         self.figureManager.saveVelocity(
-            self.velocityField, self.mesh, self.swarm, self.viscosityFn, self.modelStep
+            self.velocityField,
+            self.mesh,
+            self.swarm,
+            self.materialVariable,
+            self.modelStep,
         )
         self.figureManager.saveMaterialVariable(
             self.materialVariable, self.swarm, self.modelStep

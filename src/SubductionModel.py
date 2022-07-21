@@ -159,7 +159,7 @@ class SubductionModel(BaseModel):
 
     @property
     def vonMisesUpperLayerSP(self):
-        sigmaY = self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+        sigmaY = 4.81e5
         strainRateSecondInvariant = self.strainRate2ndInvariant
         effectiveViscosity = 0.5 * sigmaY / strainRateSecondInvariant
         return effectiveViscosity
@@ -247,38 +247,38 @@ class SubductionModel(BaseModel):
 
     @property
     def buoyancyFn(self) -> Function:
-        ez = (0.0, -1.0)
-        Ra = self.rayleighNumber
-        thermalDensityFn = Ra * (self.temperature)
+        ez = (0.0, 1.0)
+        Ra = 4.3e7
+        thermalDensityFn = Ra * (self.temperature - 1.0)
         buoyancyMapFn = thermalDensityFn * ez
         mpi.barrier()
         return buoyancyMapFn
 
     @property
     def velocityBC(self):
-        # verticalWalls = (
-        #     self.mesh.specialSets["Left_VertexSet"]
-        #     + self.mesh.specialSets["Right_VertexSet"]
-        # )
-        # lateralWalls = (
-        #     self.mesh.specialSets["Top_VertexSet"]
-        #     + self.mesh.specialSets["Bottom_VertexSet"]
-        # )
-
-        # VelocityBoundaryCondition = conditions.DirichletCondition(
-        #     variable=self.velocityField,
-        #     indexSetsPerDof=(verticalWalls, lateralWalls),
-        # )
-        jWalls = (
-            self.mesh.specialSets["MinJ_VertexSet"]
-            + self.mesh.specialSets["MaxJ_VertexSet"]
+        verticalWalls = (
+            self.mesh.specialSets["Left_VertexSet"]
+            + self.mesh.specialSets["Right_VertexSet"]
         )
-        bottomWall = self.mesh.specialSets["MinJ_VertexSet"]
-
-        periodicBC = conditions.DirichletCondition(
-            variable=self.velocityField, indexSetsPerDof=(bottomWall, jWalls)
+        lateralWalls = (
+            self.mesh.specialSets["Top_VertexSet"]
+            + self.mesh.specialSets["Bottom_VertexSet"]
         )
-        return periodicBC
+
+        VelocityBoundaryCondition = conditions.DirichletCondition(
+            variable=self.velocityField,
+            indexSetsPerDof=(verticalWalls, lateralWalls),
+        )
+        # jWalls = (
+        #     self.mesh.specialSets["MinJ_VertexSet"]
+        #     + self.mesh.specialSets["MaxJ_VertexSet"]
+        # )
+        # bottomWall = self.mesh.specialSets["MinJ_VertexSet"]
+
+        # periodicBC = conditions.DirichletCondition(
+        #     variable=self.velocityField, indexSetsPerDof=(bottomWall, jWalls)
+        # )
+        return VelocityBoundaryCondition
 
     @property
     def temperatureBC(self):
@@ -331,8 +331,8 @@ class SubductionModel(BaseModel):
         pass
 
     def _update(self):
-        # dt = self.advectionDiffusionSystem.get_max_dt()
         dt = self.advectionDiffusionSystem.get_max_dt()
+        # dt = self.swarmAdvector.get_max_dt()
         self.advectionDiffusionSystem.integrate(dt)
         self.swarmAdvector.integrate(dt, update_owners=True)
         self.swarm.update_particle_owners()

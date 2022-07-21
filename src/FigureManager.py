@@ -39,7 +39,7 @@ class FigureManager:
         )
         self.saveFig(fig)
 
-    def saveVelocity(self, velocityField, mesh, swarm, viscosityFn, step) -> None:
+    def saveVelocity(self, velocityField, mesh, swarm, materialVar, step) -> None:
         fig = self._getFig(f"{self.name} Velocity", f"velocity_{step}_")
         velocityMagnitude = fn.math.sqrt(fn.math.dot(velocityField, velocityField))
         fig.append(
@@ -47,7 +47,9 @@ class FigureManager:
                 swarm, velocityMagnitude, pointSize=2, logScale=True
             )
         )
+        fig.append(visualisation.objects.Points(swarm, materialVar))
         fig.append(visualisation.objects.VectorArrows(mesh, velocityField))
+
         self.saveFig(fig)
 
     def saveStrainRate(self, strainRate2ndInvariant, mesh, step) -> None:
