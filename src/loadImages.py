@@ -1,3 +1,5 @@
+import os
+
 from FigureViewer import FigureViewer
 
 if __name__ == "__main__":

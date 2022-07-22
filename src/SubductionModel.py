@@ -230,25 +230,38 @@ class SubductionModel(BaseModel):
     @property
     def rayleighNumber(self):
 
-        ls = self.parameters.modelHeight.dimensionalValue.magnitude
-        rhoRef = self.parameters.referenceDensity.dimensionalValue.magnitude
+        # Using whole mantle depth as reference height.
+        ls = 2900e3
+
+        # rhoRef = self.parameters.referenceDensity.dimensionalValue.magnitude
+        rhoRef = 3300
+        print(f"{rhoRef = }")
 
         g = self.parameters.gravitationalAcceleration.dimensionalValue.magnitude
+        print(f"{g = }")
         alpha = self.parameters.thermalExpansivity.dimensionalValue.magnitude
+        print(f"{alpha = }")
 
-        deltaT = self.parameters.temperatureContrast.dimensionalValue.magnitude
+        # deltaT = self.parameters.temperatureContrast.dimensionalValue.magnitude
+        deltaT = 1400
+        print(f"{deltaT = }")
 
         k = self.parameters.thermalDiffusivity.dimensionalValue.magnitude
+        print(f"{k = }")
 
-        eta = self.parameters.referenceViscosity.dimensionalValue.magnitude
+        # eta = self.parameters.referenceViscosity.dimensionalValue.magnitude
+        eta = 1e20
+        print(f"{eta = }")
 
-        rayLeighNumber = ((ls**3) * rhoRef * g * alpha * deltaT) / (k * eta)
-        return rayLeighNumber
+        rayLeighNumber = ((ls * ls * ls) * rhoRef * g * alpha * deltaT) / (k * eta)
+        print(f"{rayLeighNumber =}")
+
+        return 4.3e7
 
     @property
     def buoyancyFn(self) -> Function:
         ez = (0.0, 1.0)
-        Ra = 4.3e7
+        Ra = self.rayleighNumber
         thermalDensityFn = Ra * (self.temperature - 1.0)
         buoyancyMapFn = thermalDensityFn * ez
         mpi.barrier()

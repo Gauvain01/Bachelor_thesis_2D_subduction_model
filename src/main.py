@@ -25,11 +25,12 @@ if __name__ == "__main__":
     )
     model = SubductionModel(
         modelParameters=get_Strak_2021_model_parameter_map(),
-        totalSteps=10,
-        checkPointSteps=5,
+        totalSteps=2,
+        checkPointSteps=2,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name=f"test_49",
+        name=f"test_54",
     )
     print("banaan")
+    # model.rayleighNumber
     model.run()

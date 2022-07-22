@@ -47,8 +47,10 @@ class FigureManager:
                 swarm, velocityMagnitude, pointSize=2, logScale=True
             )
         )
+        fig.append(
+            visualisation.objects.VectorArrows(mesh, velocityField, autoscale=True)
+        )
         fig.append(visualisation.objects.Points(swarm, materialVar))
-        fig.append(visualisation.objects.VectorArrows(mesh, velocityField))
 
         self.saveFig(fig)
 
