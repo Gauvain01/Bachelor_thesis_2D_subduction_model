@@ -159,7 +159,9 @@ class SubductionModel(BaseModel):
 
     @property
     def vonMisesUpperLayerSP(self):
-        sigmaY = 4.81e5
+        sigmaY = (
+            self.parameters.yieldStressOfSpTopLayer.dimensionalValue.to_base_units().magnitude
+        )
         strainRateSecondInvariant = self.strainRate2ndInvariant
         effectiveViscosity = 0.5 * sigmaY / strainRateSecondInvariant
         return effectiveViscosity
@@ -231,32 +233,32 @@ class SubductionModel(BaseModel):
     def rayleighNumber(self):
 
         # Using whole mantle depth as reference height.
-        ls = 2900e3
+        ls = 2900e3 * u.meter
 
-        # rhoRef = self.parameters.referenceDensity.dimensionalValue.magnitude
-        rhoRef = 3300
+        rhoRef = self.parameters.referenceDensity.dimensionalValue
+        # rhoRef = 3300
         print(f"{rhoRef = }")
 
-        g = self.parameters.gravitationalAcceleration.dimensionalValue.magnitude
+        g = self.parameters.gravitationalAcceleration.dimensionalValue
         print(f"{g = }")
-        alpha = self.parameters.thermalExpansivity.dimensionalValue.magnitude
+        alpha = self.parameters.thermalExpansivity.dimensionalValue
         print(f"{alpha = }")
 
-        # deltaT = self.parameters.temperatureContrast.dimensionalValue.magnitude
-        deltaT = 1400
+        deltaT = self.parameters.temperatureContrast.dimensionalValue
         print(f"{deltaT = }")
 
-        k = self.parameters.thermalDiffusivity.dimensionalValue.magnitude
+        k = self.parameters.thermalDiffusivity.dimensionalValue
         print(f"{k = }")
 
-        # eta = self.parameters.referenceViscosity.dimensionalValue.magnitude
-        eta = 1e20
-        print(f"{eta = }")
+        visRef = self.parameters.referenceViscosity.dimensionalValue
+        print(f"{visRef = }")
 
-        rayLeighNumber = ((ls * ls * ls) * rhoRef * g * alpha * deltaT) / (k * eta)
-        print(f"{rayLeighNumber =}")
-
-        return 4.3e7
+        rayleighNumber = (
+            (alpha * rhoRef * g * deltaT * ls**3).to_base_units()
+            / (visRef * k).to_base_units()
+        ).magnitude
+        print(f"{rayleighNumber = }")
+        return rayleighNumber
 
     @property
     def buoyancyFn(self) -> Function:
@@ -350,10 +352,12 @@ class SubductionModel(BaseModel):
         self.swarmAdvector.integrate(dt, update_owners=True)
         self.swarm.update_particle_owners()
         self.populationControl.repopulate()
+        self._tracerManager.advectTracers(dt)
 
         self._solutionExists.value = True
         self.modelTime += dt
         self.modelStep += 1
+        self._tracerManager.saveCoordinatesForTracers(self.modelStep, self.modelTime)
         self.figureManager.incrementStoreStep()
 
     @property
@@ -384,6 +388,8 @@ class SubductionModel(BaseModel):
                 print(
                     f"{self.name = }, {self.modelStep = } {self.modelTime = :.3e} {self.vrms = :.3e} "
                 )
+                if self.modelStep == self.totalSteps - 1:
+                    self._tracerManager.writeTracerData()
 
             mpi.barrier()
             self._update()

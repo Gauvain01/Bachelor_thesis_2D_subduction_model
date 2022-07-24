@@ -14,6 +14,8 @@ from CheckPointManager import CheckPointManager
 from FigureManager import FigureManager
 from meshProjector import meshProjector
 from modelParameters import ModelParameterMap
+from TracerManager import TracerManager
+from TracerParticle import TracerParticle
 
 
 class BaseModel:
@@ -42,6 +44,7 @@ class BaseModel:
         self._figureManager = FigureManager(self.outputPath, self.name)
         self._setMesh()
         self._setSwarm()
+        self._tracerManager = TracerManager()
         mpi.barrier()
         self.addMeshVariable(
             "pressureField", "double", 1, subMesh=True, restartVariable=True
@@ -116,6 +119,12 @@ class BaseModel:
                 name=name, step=self.restartStep, field=field
             )
         setattr(self, name, field)
+
+    def addTracer(self, tracerParticle: TracerParticle):
+        tracerParticle._buildSwarmAndAdvector(
+            self.velocityField, self.mesh, self.outputPath
+        )
+        self._tracerManager.addTracer(tracerParticle)
 
     @abstractmethod
     def _initTemperatureVariables(self):

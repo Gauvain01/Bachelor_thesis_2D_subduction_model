@@ -130,6 +130,9 @@ class SubductionZonePolygons:
             coord11,
             coord15,
         ]
+        self.coreLowerSlab = coord2
+        self.hingeCoord = coord9
+        self.middelPartUpper = (coord9[0] - coord13[0], coord13[1])
 
         self.upperSlabPolygon = [
             coord13,
@@ -283,3 +286,12 @@ class SubductionZonePolygons:
 
     def getLowerSlabShapeArray(self) -> List[Tuple]:
         return np.array(self.lowerSlabPolygon)
+
+    def getHingeCoordinate(self) -> Tuple:
+        return self.hingeCoord
+
+    def getLowestPointCoreSlabCoord(self) -> Tuple:
+        return self.coreLowerSlab
+
+    def getMiddlePartUpperSlabCoord(self) -> Tuple:
+        return self.middelPartUpper

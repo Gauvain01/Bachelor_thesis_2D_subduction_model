@@ -7,6 +7,7 @@ from FigureViewer import FigureViewer
 from PlatePolygons import SubductionZonePolygons
 from strakParam import get_Strak_2021_model_parameter_map
 from SubductionModel import SubductionModel
+from TracerParticle import TracerParticle
 
 if __name__ == "__main__":
 
@@ -20,17 +21,21 @@ if __name__ == "__main__":
         30e3 * u.meter,
         100e3 * u.meter,
     )
-    print(
-        get_Strak_2021_model_parameter_map().yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
-    )
+
     model = SubductionModel(
         modelParameters=get_Strak_2021_model_parameter_map(),
         totalSteps=2,
         checkPointSteps=2,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name=f"test_54",
+        name=f"test_61",
     )
-    print("banaan")
-    # model.rayleighNumber
+    model.addTracer(TracerParticle(polygons.getHingeCoordinate(), "hinge"))
+    model.addTracer(
+        TracerParticle(polygons.getLowestPointCoreSlabCoord(), "lowest_point")
+    )
+    model.addTracer(
+        TracerParticle(polygons.getMiddlePartUpperSlabCoord(), "middle_part_upper_slab")
+    )
+
     model.run()
