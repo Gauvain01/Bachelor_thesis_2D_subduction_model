@@ -345,6 +345,11 @@ class SubductionModel(BaseModel):
         #         self.materialVariable.data[index] = self.lowerSlabIndex
         pass
 
+    def testVelocity(self):
+        print("velocityTest")
+
+        self.velocityField: mesh.MeshVariable
+
     def _update(self):
         dt = self.advectionDiffusionSystem.get_max_dt()
         # dt = self.swarmAdvector.get_max_dt()
