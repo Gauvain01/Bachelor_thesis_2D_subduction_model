@@ -294,11 +294,9 @@ class BaseModel:
     @property
     def solver(self):
         mpi.barrier()
-        print(" i past the barrier for the solver")
         stokes = self.stokes
         self._solver = systems.Solver(stokes)
         self._solver.set_inner_method("mumps")
-        print("i got the solver")
         return self._solver
 
     @property

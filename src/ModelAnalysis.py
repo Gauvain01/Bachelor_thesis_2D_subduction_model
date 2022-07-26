@@ -26,7 +26,7 @@ class StepData(modelDataFolder):
 
     def getTimeJson(self) -> Dict:
         with open(self.timePath, "r") as f:
-            time = json.loads(f)
+            time = json.load(f)
         return time
 
 
@@ -36,7 +36,7 @@ class TracerData(modelDataFolder):
 
     def getTracerData(self) -> Dict:
         with open(self.path, "r") as f:
-            item = json.loads(f)
+            item = json.load(f)
         return item
 
 
@@ -50,7 +50,8 @@ class ModelData:
         files = os.listdir(self.dataPath)
 
         for item in files:
-            itemPath = f"{self.dataPath}/item"
+            print(item)
+            itemPath = f"{self.dataPath}/{item}"
             data = 1
             if len(item) == 5:
                 try:
@@ -64,8 +65,9 @@ class ModelData:
                 tracerData = TracerData(itemPath)
                 self.tracerDataSequence.append(tracerData)
                 data = 0
-            if item.startswith("mesh"):
+            if item.startswith("mesh") or item.endswith("FigStore.gldb"):
                 self.meshPath = itemPath
+                data = 0
 
             if data == 1:
                 raise ValueError(f"unaccounted item {item}")
@@ -82,10 +84,10 @@ class TracerAnalysis:
         lateralV, verticalV = self._calculateAverageVelocity()
         fig, ax = plt.subplots(figsize=(5, 2.7), layout="constrained")
         ax.plot([i[0] for i in lateralV], [i[1] for i in lateralV])
-        ax.set_xlabel("Velocity (cm/yr)")
-        ax.set_ylabel("Time (Myr)")
+        ax.set_ylabel("Velocity (cm/yr)")
+        ax.set_xlabel("Time (Myr)")
         ax.set_title("Lateral Velocity")
-        fig.savefig("/src/output")
+        fig.savefig("./src/output")
 
     def _calculateAverageVelocity(self):
         data = self.tracerData.getTracerData()
@@ -93,13 +95,19 @@ class TracerAnalysis:
         startY = None
         lateralVelocity = []
         verticalVelocity = []
-        for i in len(data):
-            scaL = self.modelParameters.scalingCoefficient.lengthCoefficient.magnitude
-            scaT = self.modelParameters.scalingCoefficient.timeCoefficient.magnitude
-            stepData = data[str(i)]
+        for i in data.keys():
+            i = int(i)
+            scaL = 2900e3
+            k = self.modelParameters.thermalDiffusivity.dimensionalValue.magnitude
+
+            lSquared = 2900e3
+            scaT = (lSquared * lSquared) / k
+
+            stepData = data[f"{i}"]
             x = stepData["coord"][0] * scaL * 100
             y = stepData["coord"][1] * scaL * 100
-            time = stepData["time"] * scaT / 60 / 60 / 24 / 365 / 1e6
+            time = (stepData["time"] * scaT) / (60 * 60 * 24 * 365 * 1e6)
+            print(time)
 
             if i == 0:
                 startX = x
@@ -107,16 +115,16 @@ class TracerAnalysis:
                 lateralVelocity.append((0.0, 0.0))
             if i > 0:
                 deltaT = time - (
-                    data[str(i) - 1]["time"] * scaT / 60 / 60 / 24 / 365 / 1e6
+                    data[f"{i-1}"]["time"] * scaT / (60 * 60 * 24 * 365 * 1e6)
                 )
-                deltaX = abs(x - (data[str(i) - 1]["coord"][0] * scaL * 100))
-                deltaY = abs(y - (data[str(i) - 1]["coord"][1] * scaL * 100))
-                vVer = deltaY / deltaT
-                vLat = deltaX / deltaT
+                deltaX = abs(x - (data[f"{i-1}"]["coord"][0] * scaL * 100))
+                deltaY = abs(y - (data[f"{i-1}"]["coord"][1] * scaL * 100))
+                vVer = deltaY / (deltaT * 1e6)
+                vLat = deltaX / (deltaT * 1e6)
                 if y < startY:
                     vVer = -vVer
                 if x < startX:
-                    vlat = -vlat
+                    vLat = -vLat
 
                 lateralVelocity.append((time, vLat))
                 verticalVelocity.append((time, vVer))

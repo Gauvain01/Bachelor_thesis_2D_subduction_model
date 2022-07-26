@@ -85,7 +85,6 @@ class FigureManager:
 
     def saveStressField(self, mesh, stressField, step) -> None:
         fig = self._getFig(f"{self.name} StressField", f"stressField_{step}_")
-        print(type(stressField))
         fig.append(visualisation.objects.Surface(mesh, stressField))
         self.saveFig(fig)
 

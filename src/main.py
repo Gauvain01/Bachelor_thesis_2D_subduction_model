@@ -28,7 +28,7 @@ if __name__ == "__main__":
         checkPointSteps=2,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name=f"test_62",
+        name=f"test_67",
     )
     model.addTracer(TracerParticle(polygons.getHingeCoordinate(), "hinge"))
     model.addTracer(

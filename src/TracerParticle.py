@@ -47,7 +47,6 @@ class TracerParticle:
     def saveInitialCoord(self):
         if mpi.rank == 0:
             coordArray = self.startingPosition
-            print(coordArray)
             coord = (coordArray[0], coordArray[1])
             item = {"time": 0, "coord": coord}
             self.coords[0] = item
@@ -57,7 +56,6 @@ class TracerParticle:
 
         if len(self.swarm.data) != 0:
             data = self.swarm.data
-            print(f"{data = }")
             mpi.comm.send(data, 0, 28)
 
         mpi.barrier()

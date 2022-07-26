@@ -68,14 +68,12 @@ class SubductionModel(BaseModel):
         print("finishedSwarm")
 
     def _initTemperatureVariables(self):
-        print("hi")
         mpi.barrier()
         # with mpi.call_pattern():
         self._temperatureDotField.data[...] = 0.0
 
         self._proxyTemp.data[...] = 1.0
         self.materialVariable.data[:] = self.upperMantleIndex
-        print("i am here")
         print(len(self.swarm.particleCoordinates.data))
         count = 0
         for index in range(len(self.swarm.particleCoordinates.data)):
@@ -95,11 +93,9 @@ class SubductionModel(BaseModel):
                 self.materialVariable.data[index] = self.lowerSlabIndex
                 self._proxyTemp.data[index] = 0.0
 
-        print("startedSolverForTemp")
         TmapSolver = utils.MeshVariable_Projection(
             self._temperatureField, self._proxyTemp
         )
-        print("done")
         TmapSolver.solve()
         print("solved TemperatureField")
 
@@ -159,9 +155,8 @@ class SubductionModel(BaseModel):
 
     @property
     def vonMisesUpperLayerSP(self):
-        sigmaY = (
-            self.parameters.yieldStressOfSpTopLayer.dimensionalValue.to_base_units().magnitude
-        )
+        sigmaY = self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+        print(f"{sigmaY =}")
         strainRateSecondInvariant = self.strainRate2ndInvariant
         effectiveViscosity = 0.5 * sigmaY / strainRateSecondInvariant
         return effectiveViscosity
@@ -218,7 +213,14 @@ class SubductionModel(BaseModel):
             self.parameters.spBottomLayerViscosity.nonDimensionalValue.magnitude
         )
 
-        # print(f"{var = }")
+        # compensating for mineral transformation of UM material entering below 660km discontinuity
+        # umVis = self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude
+        # lmVis = self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude
+        # lmH = self.parameters.lowerMantleHeigth.nonDimensionalValue.magnitude
+        # upperMantleVis = fn.branching.conditional(
+        #     [(self.depthFn > lmH, lmVis), (True, umVis)]
+        # )
+
         viscosityMap = {
             self.upperMantleIndex: self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude,
             # self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude,
@@ -237,27 +239,20 @@ class SubductionModel(BaseModel):
 
         rhoRef = self.parameters.referenceDensity.dimensionalValue
         # rhoRef = 3300
-        print(f"{rhoRef = }")
 
         g = self.parameters.gravitationalAcceleration.dimensionalValue
-        print(f"{g = }")
         alpha = self.parameters.thermalExpansivity.dimensionalValue
-        print(f"{alpha = }")
 
         deltaT = self.parameters.temperatureContrast.dimensionalValue
-        print(f"{deltaT = }")
 
         k = self.parameters.thermalDiffusivity.dimensionalValue
-        print(f"{k = }")
 
         visRef = self.parameters.referenceViscosity.dimensionalValue
-        print(f"{visRef = }")
 
         rayleighNumber = (
             (alpha * rhoRef * g * deltaT * ls**3).to_base_units()
             / (visRef * k).to_base_units()
         ).magnitude
-        print(f"{rayleighNumber = }")
         return rayleighNumber
 
     @property
@@ -329,6 +324,10 @@ class SubductionModel(BaseModel):
     def lowerSlabIndex(self):
         return 3
 
+    # @property
+    # def lowerMantleIndex(self):
+    #     return 4
+
     def _initMaterialVariable(self):
         # mpi.barrier()
         # self.materialVariable.data[:] = self.upperMantleIndex
@@ -346,7 +345,6 @@ class SubductionModel(BaseModel):
         pass
 
     def testVelocity(self):
-        print("velocityTest")
 
         self.velocityField: mesh.MeshVariable
 
@@ -378,8 +376,6 @@ class SubductionModel(BaseModel):
 
         check_start_time = time()
         while self.modelStep < self.totalSteps:
-            print("started solving")
-            print(f"{self.solver = }")
             self.solver.solve(
                 nonLinearIterate=True, nonLinearTolerance=0.1, print_stats=True
             )
