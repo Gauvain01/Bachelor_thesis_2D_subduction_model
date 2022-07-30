@@ -1,8 +1,11 @@
+import json
 import math
+from distutils import dep_util
 from time import time
-from typing import Tuple
+from typing import List, Tuple
 from unicodedata import name
 
+import numpy as np
 from underworld import conditions
 from underworld import function as fn
 from underworld import mesh, mpi
@@ -12,6 +15,7 @@ from underworld.function._function import Function
 from underworld.scaling import units as u
 
 from BaseModel import BaseModel
+from DipDataCollector import DipDataCollector
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
 
@@ -37,6 +41,7 @@ class SubductionModel(BaseModel):
         super().__init__(
             modelParameters, totalSteps, checkPointSteps, name, restart, restartStep
         )
+        self.dipDataCollectors: List[DipDataCollector] = []
 
     def _setMesh(self):
         self.mesh = mesh.FeMesh_Cartesian(
@@ -170,6 +175,10 @@ class SubductionModel(BaseModel):
         coordinate = fn.input()
         depthFn = self.mesh.maxCoord[1] - coordinate[1]
         return depthFn
+
+    def addDipDataCollector(self, collector: DipDataCollector):
+        collector.setOutputPath(self.outputPath)
+        self.dipDataCollectors.append(collector)
 
     @property
     def viscosityFn(self) -> Function:
@@ -362,6 +371,14 @@ class SubductionModel(BaseModel):
         self.modelStep += 1
         self._tracerManager.saveCoordinatesForTracers(self.modelStep, self.modelTime)
         self.figureManager.incrementStoreStep()
+        for i in self.dipDataCollectors:
+            i.calculateDip(
+                self.materialVariable,
+                self.swarm,
+                self.coreSlabIndex,
+                self.modelTime,
+                self.modelStep,
+            )
 
     @property
     def vrms(self):
@@ -391,6 +408,8 @@ class SubductionModel(BaseModel):
                 )
                 if self.modelStep == self.totalSteps - 1:
                     self._tracerManager.writeTracerData()
+                    for i in self.dipDataCollectors:
+                        i.dipCoordsToJson()
 
             mpi.barrier()
             self._update()
