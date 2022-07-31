@@ -38,7 +38,8 @@ if __name__ == "__main__":
     model.addTracer(
         TracerParticle(polygons.getMiddlePartUpperSlabCoord(), "middle_part_upper_slab")
     )
-    model.addDipDataCollector(DipDataCollector(100e3, 150e3, get_Strak_2021_model_parameter_map(), "shallow"))
-    model.addDipDataCollector(DipDataCollector(350e3, 400e3, get_Strak_2021_model_parameter_map(), "mid"))
+    model.addDipDataCollector(
+        DipDataCollector(0.0, 100e3, get_Strak_2021_model_parameter_map(), "shallow")
+    )
 
     model.run()

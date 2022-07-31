@@ -375,7 +375,7 @@ class SubductionModel(BaseModel):
             i.calculateDip(
                 self.materialVariable,
                 self.swarm,
-                self.coreSlabIndex,
+                self.upperSlabIndex,
                 self.modelTime,
                 self.modelStep,
             )
@@ -409,7 +409,7 @@ class SubductionModel(BaseModel):
                 if self.modelStep == self.totalSteps - 1:
                     self._tracerManager.writeTracerData()
                     for i in self.dipDataCollectors:
-                        i.dipCoordsToJson()
+                        i.dipAnglesToJson()
 
             mpi.barrier()
             self._update()
