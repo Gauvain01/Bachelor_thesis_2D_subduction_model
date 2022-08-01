@@ -117,7 +117,7 @@ class DipDataCollector:
                     highestCoordsOutput.append(item[0])
                 if item[1] is not None:
                     lowestCoordsOuput.append(item[1])
-            if len(highestCoordsOutput) != 0 or len(lowestCoordsOuput) != 0:
+            if len(highestCoordsOutput) != 0 and len(lowestCoordsOuput) != 0:
                 highestCoordsOutput.sort()
                 lowestCoordsOuput.sort()
                 finalLowestCoord = lowestCoordsOuput.pop()

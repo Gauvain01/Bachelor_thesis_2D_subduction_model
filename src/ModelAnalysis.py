@@ -50,7 +50,6 @@ class ModelData:
         files = os.listdir(self.dataPath)
 
         for item in files:
-            print(item)
             itemPath = f"{self.dataPath}/{item}"
             data = 1
             if len(item) == 5:
@@ -112,7 +111,6 @@ class TracerAnalysis:
             x = stepData["coord"][0] * scaL * 100
             y = stepData["coord"][1] * scaL * 100
             time = (stepData["time"] * scaT) / (60 * 60 * 24 * 365 * 1e6)
-            print(time)
 
             if i == 0:
                 startX = x

@@ -61,7 +61,6 @@ class TracerParticle:
         mpi.barrier()
         if mpi.rank == 0:
             coordArray = mpi.comm.recv(tag=28)[0]
-            print(coordArray)
             coord = (coordArray[0], coordArray[1])
             item = {"time": time, "coord": coord}
             self.coords[step] = item

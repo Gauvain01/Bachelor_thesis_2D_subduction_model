@@ -91,4 +91,3 @@ StrakParameterDao = (
     )
     .setTimeScaleStress(u.Quantity(1.0))
 )
-print(StrakParameterDao.__dict__)
