@@ -117,21 +117,20 @@ class DipDataCollector:
                     highestCoordsOutput.append(item[0])
                 if item[1] is not None:
                     lowestCoordsOuput.append(item[1])
-            highestCoordsOutput.sort()
-            lowestCoordsOuput.sort()
-            finalLowestCoord = lowestCoordsOuput.pop()
-            finalHighestCoord = highestCoordsOutput.pop()
+            if len(highestCoordsOutput) != 0 or len(lowestCoordsOuput) != 0:
+                highestCoordsOutput.sort()
+                lowestCoordsOuput.sort()
+                finalLowestCoord = lowestCoordsOuput.pop()
+                finalHighestCoord = highestCoordsOutput.pop()
 
-            deltaHScaled = finalHighestCoord[1] - finalLowestCoord[1]
-            deltaLScaled = abs(finalHighestCoord[0] - finalLowestCoord[0])
+                deltaHScaled = finalHighestCoord[1] - finalLowestCoord[1]
+                deltaLScaled = abs(finalHighestCoord[0] - finalLowestCoord[0])
 
-            deltaHDim = deltaHScaled * self.sca.lengthCoefficient.magnitude
-            deltaLDim = deltaLScaled * self.sca.lengthCoefficient.magnitude
-            print(deltaHDim)
-            print(deltaLDim)
-            angleRad = math.atan((deltaHDim / deltaLDim))
-            angle = math.degrees(angleRad)
-            self.dipAngles[modelStep] = {"angle": angle, "time": modelTime}
+                deltaHDim = deltaHScaled * self.sca.lengthCoefficient.magnitude
+                deltaLDim = deltaLScaled * self.sca.lengthCoefficient.magnitude
+                angleRad = math.atan((deltaHDim / deltaLDim))
+                angle = math.degrees(angleRad)
+                self.dipAngles[modelStep] = {"angle": angle, "time": modelTime}
         mpi.barrier()
 
     def dipAnglesToJson(self):

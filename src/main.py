@@ -25,11 +25,11 @@ if __name__ == "__main__":
 
     model = SubductionModel(
         modelParameters=get_Strak_2021_model_parameter_map(),
-        totalSteps=10,
-        checkPointSteps=2,
+        totalSteps=100,
+        checkPointSteps=10,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name=f"test_68",
+        name=f"test_70",
     )
     model.addTracer(TracerParticle(polygons.getHingeCoordinate(), "hinge"))
     model.addTracer(
@@ -40,6 +40,9 @@ if __name__ == "__main__":
     )
     model.addDipDataCollector(
         DipDataCollector(0.0, 100e3, get_Strak_2021_model_parameter_map(), "shallow")
+    )
+    model.addDipDataCollector(
+        DipDataCollector(150e3, 400e3, get_Strak_2021_model_parameter_map(), "mid")
     )
 
     model.run()

@@ -161,7 +161,6 @@ class SubductionModel(BaseModel):
     @property
     def vonMisesUpperLayerSP(self):
         sigmaY = self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
-        print(f"{sigmaY =}")
         strainRateSecondInvariant = self.strainRate2ndInvariant
         effectiveViscosity = 0.5 * sigmaY / strainRateSecondInvariant
         return effectiveViscosity
@@ -244,7 +243,7 @@ class SubductionModel(BaseModel):
     def rayleighNumber(self):
 
         # Using whole mantle depth as reference height.
-        ls = 2900e3 * u.meter
+        ls = 660e3 * u.meter
 
         rhoRef = self.parameters.referenceDensity.dimensionalValue
         # rhoRef = 3300

@@ -65,7 +65,11 @@ class ModelData:
                 tracerData = TracerData(itemPath)
                 self.tracerDataSequence.append(tracerData)
                 data = 0
-            if item.startswith("mesh") or item.endswith("FigStore.gldb"):
+            if (
+                item.startswith("mesh")
+                or item.endswith("FigStore.gldb")
+                or item.startswith("dip")
+            ):
                 self.meshPath = itemPath
                 data = 0
 
@@ -80,14 +84,15 @@ class TracerAnalysis:
         self.tracerData = tracerData
         self.modelParameters = modelParameterMap
 
-    def plotLateralVelocity(self):
+    def plotLateralVelocity(self, path):
         lateralV, verticalV = self._calculateAverageVelocity()
         fig, ax = plt.subplots(figsize=(5, 2.7), layout="constrained")
         ax.plot([i[0] for i in lateralV], [i[1] for i in lateralV])
         ax.set_ylabel("Velocity (cm/yr)")
         ax.set_xlabel("Time (Myr)")
         ax.set_title("Lateral Velocity")
-        fig.savefig("./src/output")
+        self.tracerData.path
+        fig.savefig(path)
 
     def _calculateAverageVelocity(self):
         data = self.tracerData.getTracerData()
@@ -97,10 +102,10 @@ class TracerAnalysis:
         verticalVelocity = []
         for i in data.keys():
             i = int(i)
-            scaL = 2900e3
+            scaL = 660e3
             k = self.modelParameters.thermalDiffusivity.dimensionalValue.magnitude
 
-            lSquared = 2900e3
+            lSquared = 660e3
             scaT = (lSquared * lSquared) / k
 
             stepData = data[f"{i}"]

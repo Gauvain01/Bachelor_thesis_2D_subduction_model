@@ -366,7 +366,7 @@ class BaseModel:
             stepString = str(self.modelStep).zfill(5)
             k = self.parameters.thermalDiffusivity.dimensionalValue.magnitude
 
-            lSquared = 2900e3
+            lSquared = 660e3
             timeS = (lSquared * lSquared) / k
 
             stepOutputPath = self.outputPath + "/" + stepString
