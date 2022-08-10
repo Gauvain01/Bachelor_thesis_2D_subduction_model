@@ -58,6 +58,7 @@ class BaseModel:
         self.addSwarmVariable("_viscosityField", "double", 1)
         self.addMeshVariable("_projectedViscosity", "double", 1, subMesh=True)
         self.addSwarmVariable("_stressField", "double", 1, restartVariable=True)
+        self.addSwarmVariable("_previousStressField", "double", 1, restartVariable=True)
 
         self.pressureField.data[:] = 0.0
         self.addSwarmVariable("_proxyTemp", "double", 1)
@@ -199,6 +200,10 @@ class BaseModel:
             else:
                 raise AttributeError("_temperatureField not assigned")
         return self._temperatureField
+
+    @property
+    def previousStressField(self):
+        return self._previousStressField
 
     @property
     def temperatureDotField(self):
@@ -366,7 +371,7 @@ class BaseModel:
             stepString = str(self.modelStep).zfill(5)
             k = self.parameters.thermalDiffusivity.dimensionalValue.magnitude
 
-            lSquared = 660e3
+            lSquared = 2900e3
             timeS = (lSquared * lSquared) / k
 
             stepOutputPath = self.outputPath + "/" + stepString

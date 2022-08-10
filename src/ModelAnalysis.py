@@ -7,6 +7,7 @@ from typing import Dict, List
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.axis import Axis
 
 from modelParameters import ModelParameterMap
 
@@ -30,6 +31,16 @@ class StepData(modelDataFolder):
         return time
 
 
+class DipData(modelDataFolder):
+    def __init__(self, path) -> None:
+        super().__init__(path)
+
+    def getDipData(self) -> Dict:
+        with open(self.path, "r") as f:
+            item = json.load(f)
+        return item
+
+
 class TracerData(modelDataFolder):
     def __init__(self, path) -> None:
         super().__init__(path)
@@ -45,6 +56,7 @@ class ModelData:
         self.dataPath = dataPath
         self.stepDataSequence: List[StepData] = []
         self.tracerDataSequence: List[TracerData] = []
+        self.dipDataSequece: List[DipData] = []
 
     def _getData(self):
         files = os.listdir(self.dataPath)
@@ -64,11 +76,11 @@ class ModelData:
                 tracerData = TracerData(itemPath)
                 self.tracerDataSequence.append(tracerData)
                 data = 0
-            if (
-                item.startswith("mesh")
-                or item.endswith("FigStore.gldb")
-                or item.startswith("dip")
-            ):
+            if item.startswith("dip"):
+                dipData = DipData(itemPath)
+                self.dipDataSequece.append(dipData)
+                data = 0
+            if item.startswith("mesh") or item.endswith("FigStore.gldb"):
                 self.meshPath = itemPath
                 data = 0
 
@@ -99,12 +111,14 @@ class TracerAnalysis:
         startY = None
         lateralVelocity = []
         verticalVelocity = []
-        for i in data.keys():
-            i = int(i)
-            scaL = 660e3
+        steps = [int(i) for i in data.keys()]
+        steps.sort()
+
+        for i in steps:
+            scaL = 2900e3
             k = self.modelParameters.thermalDiffusivity.dimensionalValue.magnitude
 
-            lSquared = 660e3
+            lSquared = 2900e3
             scaT = (lSquared * lSquared) / k
 
             stepData = data[f"{i}"]
@@ -133,3 +147,42 @@ class TracerAnalysis:
                 verticalVelocity.append((time, vVer))
 
         return lateralVelocity, verticalVelocity
+
+
+class DipDataAnalysis:
+    def __init__(self, dipData: DipData, modelParameterMap: ModelParameterMap) -> None:
+        self.dipData = dipData
+        self.modelParameters = modelParameterMap
+
+    def calculateDip(self):
+        data = self.dipData.getDipData()
+        steps = [int(i) for i in data.keys()]
+        steps.sort()
+        timeDegreePair = []
+        for i in steps:
+            k = self.modelParameters.thermalDiffusivity.dimensionalValue.magnitude
+
+            lSquared = 2900e3
+            scaT = (lSquared * lSquared) / k
+
+            stepData = data[f"{i}"]
+
+            time = (stepData["time"] * scaT) / (60 * 60 * 24 * 365 * 1e6)
+            angle = stepData["angle"]
+
+            timeDegreePair.append((time, angle))
+
+        return timeDegreePair
+
+    def plotDip(self, path):
+        timeDegreePair = self.calculateDip()
+        timeList = [i[0] for i in timeDegreePair]
+        angles = [i[1] for i in timeDegreePair]
+        fig, ax = plt.subplots(figsize=(5, 2.7), layout="constrained")
+        ax.set_yticks([i for i in range(-20, 100, 10)])
+        ax.scatter(timeList, angles, marker="p")
+        ax.set_yticks([i for i in range(-20, 100, 10)])
+        ax.set_ylabel("dip angle(degrees)")
+        ax.set_xlabel("Time (Myr)")
+        ax.set_title("dip")
+        fig.savefig(path)

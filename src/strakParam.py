@@ -1,8 +1,12 @@
 from underworld.scaling import units as u
 
-from modelParameters import (ModelParameterBuilder, ModelParameterMap,
-                             ModelParameterMapBuilder, ScalingCoefficient,
-                             ScalingCoefficientType)
+from modelParameters import (
+    ModelParameterBuilder,
+    ModelParameterMap,
+    ModelParameterMapBuilder,
+    ScalingCoefficient,
+    ScalingCoefficientType,
+)
 
 
 class Strak2021ScalingCoefficient(ScalingCoefficient):
@@ -15,7 +19,7 @@ class Strak2021ScalingCoefficient(ScalingCoefficient):
 
     @property
     def lengthCoefficient(self):
-        return 660e3 * u.meter
+        return 2900e3 * u.meter
 
     @property
     def temperatureCoefficient(self):

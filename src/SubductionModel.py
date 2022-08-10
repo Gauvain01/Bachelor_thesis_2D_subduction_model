@@ -16,6 +16,7 @@ from underworld.scaling import units as u
 
 from BaseModel import BaseModel
 from DipDataCollector import DipDataCollector
+from meshProjector import meshProjector
 from modelParameters._Model_parameter_map import ModelParameterMap
 from PlatePolygons import SubductionZonePolygons
 
@@ -41,6 +42,7 @@ class SubductionModel(BaseModel):
         super().__init__(
             modelParameters, totalSteps, checkPointSteps, name, restart, restartStep
         )
+        self.previousStressField.data[:] = 0.0
         self.dipDataCollectors: List[DipDataCollector] = []
 
     def _setMesh(self):
@@ -139,7 +141,6 @@ class SubductionModel(BaseModel):
         minimalStrainRate = (
             self.parameters.minimalStrainRate.nonDimensionalValue.magnitude
         )
-
         defaultStrainRate = (
             self.parameters.defaultStrainRate.nonDimensionalValue.magnitude
         )
@@ -162,8 +163,27 @@ class SubductionModel(BaseModel):
     def vonMisesUpperLayerSP(self):
         sigmaY = self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
         strainRateSecondInvariant = self.strainRate2ndInvariant
-        effectiveViscosity = 0.5 * sigmaY / strainRateSecondInvariant
+        effectiveViscosity = sigmaY / (2.0 * strainRateSecondInvariant)
+
         return effectiveViscosity
+
+    @property
+    def dislocationCreepArrhoniusUM(self):
+        A = 3e6
+        n = 3.5
+        E = 530e3
+        R = self.parameters.gasConstant.dimensionalValue.magnitude
+        T = (
+            self.temperature
+            * self.parameters.referenceTemperature.dimensionalValue.magnitude
+        )
+
+        epsilon = self.strainRate2ndInvariant
+        partExp = E / (n * R * T)
+        effVis = (
+            0.5 * (A ** (-1 / n)) * fn.math.exp(partExp) * (epsilon ** ((1 - n) / n))
+        )
+        return effVis
 
     @property
     def stressFn(self) -> Function:
@@ -183,21 +203,48 @@ class SubductionModel(BaseModel):
     def viscosityFn(self) -> Function:
         # reduction of viscosity of top layer using von Mises criterion
         # checkForYieldStress
+        # yieldCheckSolExists = fn.misc.min(
+        #     self.vonMisesUpperLayerSP,
+        #     self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude,
+        # )
 
+        # spTopLayerViscosity = (
+        #     self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
+        # )
+
+        # VonMisesReduction = fn.branching.conditional(
+        #     [(yieldCheckSolExists < 0.1, 0.1), (True, yieldCheckSolExists)]
+        # )
+        # # check if solutionExists
+        # spTopLayerVonMisesReduction = fn.branching.conditional(
+        #     [
+        #         (self._solutionExists, VonMisesReduction),
+        #         (True, spTopLayerViscosity),
+        #     ]
+        # )
+
+        # setting up StressMesh
+        # stressField = self._projectedStressField
+        # yieldStress = (
+        #     self.parameters.yieldStressOfSpTopLayer.nonDimensionalValue.magnitude
+        # )
         spTopLayerViscosity = (
             self.parameters.spTopLayerViscosity.nonDimensionalValue.magnitude
         )
-        VonMisesReduction = fn.misc.min(spTopLayerViscosity, self.vonMisesUpperLayerSP)
-        # check if solutionExists
-        spTopLayerVonMisesReduction = fn.branching.conditional(
-            [
-                (self._solutionExists, VonMisesReduction),
-                (True, spTopLayerViscosity),
-            ]
-        )
+        # checkStressCondition = fn.branching.conditional(
+        #     [
+        #         (stressField > yieldStress, self.vonMisesUpperLayerSP),
+        #         (True, spTopLayerViscosity),
+        #     ]
+        # )
 
+        # vonMisesReduction = fn.branching.conditional(
+        #     [(self._solutionExists, checkStressCondition), (True, spTopLayerViscosity)]
+        # )
+
+        vonMisesReduction = fn.misc.min(spTopLayerViscosity, self.vonMisesUpperLayerSP)
         # optimizing solver in order to not have lower vis in toplayer than 0.1 times the reference viscosity
-        visTopLayer = fn.misc.max(spTopLayerVonMisesReduction, 0.1)
+        visTopLayer = fn.misc.max(vonMisesReduction, 0.1)
 
         maxDepth = 200e3 * u.meter
         maxDepth = self.parameters.scalingCoefficient.scalingForLength(
@@ -221,6 +268,24 @@ class SubductionModel(BaseModel):
             self.parameters.spBottomLayerViscosity.nonDimensionalValue.magnitude
         )
 
+        # nonNewtonianUpperMantle
+        umVis = self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude
+        lowRangeUmVis = umVis / 10
+
+        # imposeCutOffValues
+        dislocationCutOff = fn.branching.conditional(
+            [
+                (self.dislocationCreepArrhoniusUM < lowRangeUmVis, lowRangeUmVis),
+                (self.dislocationCreepArrhoniusUM > umVis, umVis),
+                (True, self.dislocationCreepArrhoniusUM),
+            ]
+        )
+
+        # checkForSolution
+        upperMantleNonNewtonianVis = fn.branching.conditional(
+            [(self._solutionExists, dislocationCutOff), (True, umVis)]
+        )
+
         # compensating for mineral transformation of UM material entering below 660km discontinuity
         # umVis = self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude
         # lmVis = self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude
@@ -230,7 +295,7 @@ class SubductionModel(BaseModel):
         # )
 
         viscosityMap = {
-            self.upperMantleIndex: self.parameters.upperMantleViscosity.nonDimensionalValue.magnitude,
+            self.upperMantleIndex: upperMantleNonNewtonianVis,
             # self.lowerMantleIndex: self.parameters.lowerMantleViscosity.nonDimensionalValue.magnitude,
             self.lowerSlabIndex: round(visBottomLayer, 1),
             self.coreSlabIndex: visCoreLayer,
@@ -243,7 +308,7 @@ class SubductionModel(BaseModel):
     def rayleighNumber(self):
 
         # Using whole mantle depth as reference height.
-        ls = 660e3 * u.meter
+        ls = 2900e3 * u.meter
 
         rhoRef = self.parameters.referenceDensity.dimensionalValue
         # rhoRef = 3300
@@ -357,6 +422,7 @@ class SubductionModel(BaseModel):
         self.velocityField: mesh.MeshVariable
 
     def _update(self):
+
         dt = self.advectionDiffusionSystem.get_max_dt()
         # dt = self.swarmAdvector.get_max_dt()
         self.advectionDiffusionSystem.integrate(dt)
@@ -364,7 +430,6 @@ class SubductionModel(BaseModel):
         self.swarm.update_particle_owners()
         self.populationControl.repopulate()
         self._tracerManager.advectTracers(dt)
-
         self._solutionExists.value = True
         self.modelTime += dt
         self.modelStep += 1

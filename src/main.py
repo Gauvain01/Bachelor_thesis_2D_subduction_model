@@ -25,11 +25,11 @@ if __name__ == "__main__":
 
     model = SubductionModel(
         modelParameters=get_Strak_2021_model_parameter_map(),
-        totalSteps=100,
-        checkPointSteps=10,
+        totalSteps=10,
+        checkPointSteps=2,
         resolution=(300, 100),
         subductionZonePolygons=polygons,
-        name=f"test_70",
+        name=f"test_92",
     )
     model.addTracer(TracerParticle(polygons.getHingeCoordinate(), "hinge"))
     model.addTracer(
