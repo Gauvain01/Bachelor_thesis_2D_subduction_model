@@ -334,7 +334,9 @@ class BaseModel:
     def advectionDiffusionSystem(self):
         obj = systems.AdvectionDiffusion(
             phiField=self.temperature,
-            fn_diffusivity=1e-6,
+            fn_diffusivity=(
+                1e-6 / self.parameters.referenceTemperature.dimensionalValue.magnitude
+            ),
             phiDotField=self.temperatureDotField,
             conditions=[
                 self.temperatureBC,
